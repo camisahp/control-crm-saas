@@ -279,7 +279,7 @@ export function normalizeBranding(input: Partial<Branding> | null): Branding {
   // Migración compatible de la marca que venía guardada en instalaciones
   // existentes. Solo cambia el nombre exacto del producto anterior; una marca
   // personalizada de un cliente se respeta tal cual.
-  const name = !rawName || rawName.toLowerCase() === "vocero"
+  const name = !rawName || ["vocero", "control crm"].includes(rawName.toLowerCase())
     ? DEFAULT_BRANDING.name
     : rawName;
   const accent =

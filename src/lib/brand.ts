@@ -34,5 +34,9 @@ export const BRAND_CYAN_ON_TILE = "#3fdcff";
  * "Vocero", así que una instancia sin configurar la ve de inmediato.
  */
 export function isControlChatsName(name: string): boolean {
-  return name.trim().toLowerCase() === "control chats";
+  const normalized = name.trim().toLowerCase();
+  // Compatibilidad con la marca inicial usada antes del cambio de nombre.
+  // Así un tenant existente no conserva el mosaico genérico "C" ni el texto
+  // antiguo mientras se propaga la marca definitiva de Control Chats.
+  return normalized === "control chats" || normalized === "control crm";
 }
