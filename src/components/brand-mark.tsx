@@ -79,7 +79,7 @@ export function BrandTile({
         />
       ) : isControlChatsName(branding.name) ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src="/control-crm-logo.png" alt="" className="h-full w-full object-contain" />
+        <img src="/control-crm-logo-v2.png" alt="" className="h-full w-full object-contain" />
       ) : (
         <span className="font-bold leading-none">{faviconInitial(branding.name)}</span>
       )}
@@ -122,7 +122,7 @@ export function BrandLogo({
       <span className={cn("flex items-center gap-2 text-foreground", className)}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/control-crm-logo.png"
+          src="/control-crm-logo-v2.png"
           alt="Control Chats"
           className={cn("shrink-0 object-contain", MARK_SIZE[size])}
         />

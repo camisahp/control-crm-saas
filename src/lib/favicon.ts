@@ -133,7 +133,7 @@ export function faviconHref(
   branding: Pick<Branding, "name" | "accent" | "favicon">
 ): string {
   if (isControlChatsName(branding.name) && !branding.favicon) {
-    return "/control-crm-logo.png";
+    return "/control-crm-logo-v2.png";
   }
   return `/api/branding/favicon?v=${faviconCacheKey(branding)}`;
 }
