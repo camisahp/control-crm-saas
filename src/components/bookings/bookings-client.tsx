@@ -30,7 +30,8 @@ import { cn } from "@/lib/utils";
 import { AgendaList } from "./agenda-list";
 import { BlockDialog } from "./block-dialog";
 import { BookingDrawer, type ActResult } from "./booking-drawer";
-import type { Booking } from "./booking-look";
+import { filterByResource, type Booking, type ResourceLook } from "./booking-look";
+import { resourceColorClass } from "@/lib/resource-colors";
 import { CalendarToolbar } from "./calendar-toolbar";
 import { MonthGrid } from "./month-grid";
 import { TimeGrid } from "./time-grid";
@@ -49,6 +50,7 @@ import { TimeGrid } from "./time-grid";
 const VIEW_KEY = "vocero:citas:vista";
 const CANCELLED_KEY = "vocero:citas:canceladas";
 const TESTS_KEY = "vocero:citas:pruebas";
+const RESOURCE_KEY = "vocero:citas:recurso";
 
 /** Una ráfaga de eventos SSE (una cita y su enlace) se paga con UNA consulta. */
 const SSE_COALESCE_MS = 250;
@@ -79,12 +81,18 @@ export function BookingsClient({
   initialListTo,
   timezone: initialTimezone,
   weeklyHours: initialWeeklyHours,
+  labels,
+  currency,
 }: {
   initialView: CalendarView | null;
   initialDate: string;
   initialListTo: string | null;
   timezone: string;
   weeklyHours: WeeklyHours;
+  /** 200 — Cómo se llaman el recurso y el servicio en este giro ("Barbero"). */
+  labels: { recurso: string; recursos: string; servicio: string };
+  /** 200 — Moneda del negocio (precio del servicio en el panel). */
+  currency: string;
 }) {
   // La vista se resuelve al montar (URL › última usada › tamaño de pantalla):
   // el servidor no sabe si esto es un celular.
@@ -103,11 +111,15 @@ export function BookingsClient({
   const [blockDraft, setBlockDraft] = useState<{ day: string; time: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [now, setNow] = useState<number | null>(null);
+  // 200 — Agenda por recurso: los recursos (barberos, cabinas) y el filtro.
+  const [resources, setResources] = useState<ResourceLook[]>([]);
+  const [resourceFilter, setResourceFilter] = useState<string | null>(null);
   const seq = useRef(0);
 
   useEffect(() => {
     setShowCancelled(readPref(CANCELLED_KEY) === "1");
     setShowTests(readPref(TESTS_KEY) === "1");
+    setResourceFilter(readPref(RESOURCE_KEY) || null);
     const stored = readPref(VIEW_KEY);
     setView(
       initialView ??
@@ -122,6 +134,31 @@ export function BookingsClient({
     const t = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(t);
   }, [initialView]);
+
+  // Los recursos se piden una vez: cambian en Ajustes, no mientras se mira.
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const res = await fetch("/api/agenda/catalog").catch(() => null);
+      const data = res?.ok
+        ? ((await res.json().catch(() => null)) as {
+            resources: { id: string; name: string; color: string | null; active: boolean }[];
+          } | null)
+        : null;
+      if (!alive || !data) return;
+      setResources(
+        data.resources.map((r, i) => ({
+          id: r.id,
+          name: r.name,
+          active: r.active,
+          colorClass: resourceColorClass(r.color, i),
+        }))
+      );
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const range = useMemo(
     () => (view ? visibleRange(view, anchor, listTo) : null),
@@ -190,7 +227,20 @@ export function BookingsClient({
   const today = now === null ? null : dayIsoInTz(new Date(now), timezone);
   const nowMinutes = now === null ? 0 : wallClock(new Date(now), timezone).minutes;
 
-  const all = useMemo(() => loaded?.bookings ?? [], [loaded]);
+  // 200 — Un filtro que apunta a un recurso que ya no existe no esconde todo.
+  const activeFilter =
+    resourceFilter && resources.some((r) => r.id === resourceFilter) ? resourceFilter : null;
+  const all = useMemo(
+    () => filterByResource(loaded?.bookings ?? [], activeFilter),
+    [loaded, activeFilter]
+  );
+  const resourceBg = useCallback(
+    (b: Booking) => {
+      if (!b.resource) return null;
+      return resources.find((r) => r.id === b.resource?.id)?.colorClass ?? null;
+    },
+    [resources]
+  );
   const visible = useMemo(
     () => calendarVisible(all, { showCancelled, showTests }),
     [all, showCancelled, showTests]
@@ -334,6 +384,18 @@ export function BookingsClient({
         onBlock={() => openBlock()}
       />
 
+      {resources.length > 0 && (
+        <ResourceChips
+          label={labels.recursos}
+          resources={resources}
+          selected={activeFilter}
+          onSelect={(id) => {
+            setResourceFilter(id);
+            writePref(RESOURCE_KEY, id ?? "");
+          }}
+        />
+      )}
+
       {/* En escritorio ancho el panel de la cita EMPUJA el calendario en vez
           de taparlo: la semana entera sigue a la vista con la cita marcada. */}
       <div className="flex min-h-0 flex-1">
@@ -392,6 +454,7 @@ export function BookingsClient({
                 onSelect={select}
                 onEmptySlot={(day, time) => openBlock(day, time)}
                 onOpenDay={openDay}
+                resourceBg={resourceBg}
               />
             ) : view === "mes" ? (
               <MonthGrid
@@ -403,6 +466,7 @@ export function BookingsClient({
                 selectedId={selectedId}
                 onSelect={select}
                 onOpenDay={openDay}
+                resourceBg={resourceBg}
               />
             ) : (
               <AgendaList
@@ -412,6 +476,7 @@ export function BookingsClient({
                 today={today}
                 selectedId={selectedId}
                 onSelect={select}
+                resourceBg={resourceBg}
               />
             )}
           </div>
@@ -426,6 +491,9 @@ export function BookingsClient({
             onClose={closeDrawer}
             onAct={(body) => act(selected, body)}
             onRescheduled={(startUtc) => reveal(dayIsoInTz(new Date(startUtc), timezone))}
+            labels={{ recurso: labels.recurso, servicio: labels.servicio }}
+            currency={currency}
+            resourceBg={resourceBg(selected)}
           />
         )}
       </div>
@@ -435,6 +503,9 @@ export function BookingsClient({
           initialDay={blockDraft.day}
           initialTime={blockDraft.time}
           timezone={timezone}
+          resources={resources.filter((r) => r.active)}
+          resourceLabel={labels.recurso}
+          initialResourceId={activeFilter}
           onCancel={() => setBlockDraft(null)}
           onCreated={(day) => {
             setBlockDraft(null);
@@ -529,5 +600,55 @@ function Legend() {
         </span>
       ))}
     </span>
+  );
+}
+
+/**
+ * 200 — "Todos · Luis · Diego · Marco": la agenda de un recurso a la vez, cada
+ * uno con su color. Los bloqueos del negocio entero se ven en todos.
+ */
+function ResourceChips({
+  label,
+  resources,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  resources: ResourceLook[];
+  selected: string | null;
+  onSelect: (id: string | null) => void;
+}) {
+  const chip = (active: boolean) =>
+    cn(
+      "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft",
+      active ? "border-brand bg-brand-tint text-brand-text" : "text-text-2 hover:bg-accent"
+    );
+  return (
+    <div
+      role="group"
+      aria-label={`Filtrar por ${label.toLowerCase()}`}
+      className="flex gap-1.5 overflow-x-auto border-b px-4 py-2 sm:px-6"
+    >
+      <button
+        type="button"
+        aria-pressed={selected === null}
+        onClick={() => onSelect(null)}
+        className={chip(selected === null)}
+      >
+        Todos
+      </button>
+      {resources.map((r) => (
+        <button
+          key={r.id}
+          type="button"
+          aria-pressed={selected === r.id}
+          onClick={() => onSelect(r.id)}
+          className={cn(chip(selected === r.id), !r.active && "opacity-60")}
+        >
+          <span aria-hidden className={cn("h-2.5 w-2.5 rounded-full", r.colorClass)} />
+          {r.name}
+        </button>
+      ))}
+    </div>
   );
 }

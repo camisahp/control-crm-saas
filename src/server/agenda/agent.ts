@@ -3,6 +3,7 @@ import { getSettings } from "@/server/agenda/settings";
 import { spreadByDay } from "@/server/agenda/spread";
 import { replaceOffers } from "@/server/agenda/offers";
 import { BookingError, createSessionBooking } from "@/server/agenda/service";
+import { VERTICAL } from "@/lib/vertical";
 
 /**
  * 015 — Lo que el agente incluido puede hacer con la agenda.
@@ -87,6 +88,11 @@ export async function bookSlot(input: {
 
     const base =
       input.confirmation?.trim() || `¡Listo! Te agendé para ${result.label}.`;
+    // 200 — Cita presencial: el enlace del conector es del equipo, nunca del
+    // cliente (ni el enlace ni la promesa de uno).
+    if (VERTICAL.cita.presencial) {
+      return { ok: true, text: base };
+    }
     if (result.meetingLink) {
       return { ok: true, text: `${base}\nEnlace: ${result.meetingLink}` };
     }

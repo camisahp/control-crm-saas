@@ -5,6 +5,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -725,6 +726,83 @@ export const calendarSettings = pgTable(
   (t) => [uniqueIndex("calendar_settings_org_uq").on(t.organizationId)]
 );
 
+/* ============================================================
+ * 200 — Agenda por recurso (barberos, cabinas…) y su catálogo de servicios.
+ *
+ * Sin filas aquí la agenda es la de siempre: UN recurso implícito por
+ * organización y la duración global de `calendar_settings.slot_minutes`.
+ * Cómo se llaman (Barbero/Cabina, Servicio/Paquete) y si el cliente elige o el
+ * sistema asigna vive en `src/lib/vertical.ts`, no en la base.
+ * ============================================================ */
+
+/** Quién o qué atiende: un barbero, una cabina. Cada uno con su agenda. */
+export const agendaResource = pgTable(
+  "agenda_resource",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** Mismo formato que `calendar_settings.weekly_hours`; NULL = el horario del negocio. */
+    weeklyHours: jsonb("weekly_hours"),
+    /** Clave de la paleta de identidad (`src/lib/resource-colors.ts`); NULL = automático. */
+    color: text("color"),
+    /** Inactivo = no se ofrece; sus citas siguen en la agenda. Borrar uno con citas lo desactiva. */
+    active: boolean("active").notNull().default(true),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("agenda_resource_org_pos_idx").on(t.organizationId, t.position)]
+);
+
+/** Lo que se agenda: su duración manda sobre la de la configuración. */
+export const agendaService = pgTable(
+  "agenda_service",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    durationMinutes: integer("duration_minutes").notNull(),
+    /** CENTAVOS enteros en la moneda del negocio; NULL = sin precio publicado. */
+    priceCents: integer("price_cents"),
+    description: text("description"),
+    /** Indicaciones ANTES de la cita ("llega 10 min antes, sin cremas"). */
+    instructions: text("instructions"),
+    active: boolean("active").notNull().default(true),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("agenda_service_org_pos_idx").on(t.organizationId, t.position)]
+);
+
+/**
+ * Qué recurso ofrece qué servicio. Un servicio SIN vínculos lo ofrece
+ * cualquier recurso activo (en un spa: "cualquier cabina").
+ */
+export const agendaResourceService = pgTable(
+  "agenda_resource_service",
+  {
+    resourceId: text("resource_id")
+      .notNull()
+      .references(() => agendaResource.id, { onDelete: "cascade" }),
+    serviceId: text("service_id")
+      .notNull()
+      .references(() => agendaService.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.resourceId, t.serviceId] }),
+    index("agenda_resource_service_org_idx").on(t.organizationId),
+  ]
+);
+
 /**
  * La cita. Una sola tabla para sesiones y bloqueos manuales: un bloqueo es
  * una cita sin contacto que ocupa agenda igual.
@@ -779,12 +857,28 @@ export const booking = pgTable(
     /** Conversación del Laboratorio: jamás llama a un conector real. */
     isTest: boolean("is_test").notNull().default(false),
     notes: text("notes"),
+    /**
+     * 200 — Con quién (barbero, cabina). NULL = la agenda única de siempre; un
+     * bloqueo sin recurso ocupa a TODOS los recursos.
+     */
+    resourceId: text("resource_id").references(() => agendaResource.id, {
+      onDelete: "set null",
+    }),
+    /** 200 — Qué se agendó; su duración es la de la cita. NULL = la de siempre. */
+    serviceId: text("service_id").references(() => agendaService.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (t) => [
     index("booking_org_when_idx").on(t.organizationId, t.scheduledAt),
     index("booking_org_status_idx").on(t.organizationId, t.status),
+    index("booking_org_resource_when_idx").on(
+      t.organizationId,
+      t.resourceId,
+      t.scheduledAt
+    ),
     /**
      * Anti doble-booking ATÓMICO. La re-validación al confirmar deja una
      * ventana entre leer y escribir; esto la cierra en la BASE: dos
@@ -792,9 +886,15 @@ export const booking = pgTable(
      * la perdedora recibe un 23505 que el servicio traduce a `slot_taken` con
      * alternativas frescas. Las citas de prueba quedan fuera: no consumen la
      * agenda real.
+     *
+     * 200 — Ahora es POR RECURSO: dos barberos sí pueden atender a la misma
+     * hora. Sin recurso (`coalesce` a '') es exactamente el índice de antes.
+     * Los solapes con duraciones distintas (una de 60 min que pisa la de las
+     * 17:30) no los ve un índice: los cierra la re-validación con
+     * `pg_advisory_xact_lock` por recurso (`server/agenda/resource-booking.ts`).
      */
-    uniqueIndex("booking_org_active_slot_uq")
-      .on(t.organizationId, t.scheduledAt)
+    uniqueIndex("booking_org_resource_active_slot_uq")
+      .on(t.organizationId, sql`coalesce(${t.resourceId}, '')`, t.scheduledAt)
       .where(
         sql`${t.status} in ('agendada','realizada') and ${t.isTest} = false`
       ),
@@ -823,6 +923,14 @@ export const offeredSlot = pgTable(
     startUtc: timestamp("start_utc").notNull(),
     /** La etiqueta EXACTA que se le mostró al cliente. */
     label: text("label").notNull(),
+    /** 200 — Con quién se ofreció ese instante (NULL = agenda única). */
+    resourceId: text("resource_id").references(() => agendaResource.id, {
+      onDelete: "cascade",
+    }),
+    /** 200 — Para qué servicio se ofreció (su duración es la de la cita). */
+    serviceId: text("service_id").references(() => agendaService.id, {
+      onDelete: "cascade",
+    }),
     offeredAt: timestamp("offered_at").notNull().defaultNow(),
   },
   (t) => [index("offered_slot_conv_idx").on(t.conversationId, t.startUtc)]

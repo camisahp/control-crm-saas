@@ -25,6 +25,9 @@ const prefixes = {
   offeredSlot: "ofs",
   zoomCredentials: "zcred",
   googleCredentials: "gcred",
+  // 200 — agenda por recurso
+  agendaResource: "rs",
+  agendaService: "sv",
   // 016 — atribución de anuncios
   adAttribution: "att",
   conversionEvent: "cve",

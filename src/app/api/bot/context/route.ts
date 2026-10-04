@@ -5,7 +5,8 @@ import { requireBotKey, resolveInstanceOrg } from "@/server/bot/auth";
 import { serializeFicha } from "@/server/bot/ficha";
 import { findContactByIdentity } from "@/server/inbox/identity";
 import { isWindowOpen, windowRemainingMs } from "@/server/inbox/window";
-import { citasParaContexto } from "@/server/agenda/context";
+import { citasParaContexto, sinEnlaces } from "@/server/agenda/context";
+import { VERTICAL } from "@/lib/vertical";
 
 export const dynamic = "force-dynamic";
 
@@ -136,6 +137,11 @@ export async function GET(req: Request) {
      * pudieron leer): un cerebro que no lo recibe no afirma nada sobre citas,
      * y uno que no lo lee no cambia. Aditivo.
      */
-    ...(booking ? { booking } : {}),
+    //
+    // 200 — En un negocio PRESENCIAL (`VERTICAL.cita.presencial`) las citas
+    // van sin enlace: el del conector es el calendario del equipo.
+    ...(booking
+      ? { booking: VERTICAL.cita.presencial ? sinEnlaces(booking) : booking }
+      : {}),
   });
 }

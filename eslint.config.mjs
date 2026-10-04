@@ -10,6 +10,9 @@ const config = [
       "dist/**",
       "drizzle/**",
       "scripts/**",
+      // Catálogo de verticales de referencia: contiene proyectos Next
+      // autónomos, no archivos fuente de la aplicación Control Chats.
+      "vocero-verticales/**",
       "next-env.d.ts",
       ".tmp-seed-demo.mjs",
     ],

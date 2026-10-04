@@ -284,7 +284,7 @@ export function Composer({
             <input
               value={placeName}
               onChange={(e) => setPlaceName(e.target.value)}
-              placeholder="Oficina AISHIA"
+              placeholder="Oficina Centro"
               className="mt-1 w-full rounded-md border border-border-strong bg-background px-2.5 py-1.5 text-sm outline-none transition-[border-color,box-shadow] focus:border-brand focus:ring-[3px] focus:ring-brand-soft"
             />
           </label>

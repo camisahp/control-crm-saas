@@ -86,6 +86,13 @@ vi.mock("@/server/agenda/availability", async (importOriginal) => {
   };
 });
 
+// 200 — Sin recursos configurados: la agenda de siempre, que es lo que fija
+// esta prueba (la agenda por recurso vive en bot-availability-recursos).
+vi.mock("@/server/agenda/catalog", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/agenda/catalog")>()),
+  loadCatalog: async () => ({ resources: [], services: [] }),
+}));
+
 vi.mock("@/server/agenda/offers", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/agenda/offers")>()),
   replaceOffers: h.replaceOffers,

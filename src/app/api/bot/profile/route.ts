@@ -3,6 +3,14 @@ import { getDb, schema } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { requireBotKey, resolveInstanceOrg } from "@/server/bot/auth";
 import { serializeBotProfile } from "@/server/bot/profile";
+import { VERTICAL } from "@/lib/vertical";
+import { agendaEnabled } from "@/server/agenda/flag";
+import {
+  catalogKnowledge,
+  loadCatalog,
+  presencialKnowledge,
+} from "@/server/agenda/catalog";
+import { getBranding } from "@/server/branding";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +19,11 @@ export const dynamic = "force-dynamic";
  * GET /api/bot/profile → {profile, kb, resources}. Sin caché: cada consulta
  * refleja lo que el dueño dejó en la UI al momento (el TTL vive del lado del
  * bot, que es quien sabe cada cuánto le conviene releer).
+ *
+ * 200 — Con la agenda encendida, `kb` suma al final lo que se DERIVA del
+ * catálogo (servicios con precio y duración, quién da qué, indicaciones antes
+ * de la cita, y si la cita es en persona) y la respuesta lleva `agenda`:
+ * `{ presencial, seleccion, recurso, servicio }`. Nada de eso se guarda.
  */
 export async function GET(req: Request) {
   const denied = requireBotKey(req);
@@ -39,5 +52,23 @@ export async function GET(req: Request) {
     .where(eq(schema.kbEntry.organizationId, organizationId))
     .orderBy(asc(schema.kbEntry.createdAt));
 
-  return Response.json(serializeBotProfile(profile, kb));
+  if (!agendaEnabled()) return Response.json(serializeBotProfile(profile, kb));
+
+  const [catalog, branding] = await Promise.all([
+    loadCatalog(organizationId),
+    getBranding(organizationId),
+  ]);
+  const generated = [
+    ...catalogKnowledge(catalog, VERTICAL, branding.currency),
+    ...presencialKnowledge(VERTICAL),
+  ];
+  return Response.json({
+    ...serializeBotProfile(profile, kb, generated),
+    agenda: {
+      presencial: VERTICAL.cita.presencial,
+      seleccion: VERTICAL.seleccion,
+      recurso: VERTICAL.recurso,
+      servicio: VERTICAL.servicio,
+    },
+  });
 }

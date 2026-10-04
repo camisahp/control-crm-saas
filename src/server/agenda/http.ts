@@ -1,4 +1,5 @@
-import { BookingError, type BookingResult } from "@/server/agenda/service";
+import { BookingError } from "@/server/agenda/errors";
+import type { BookingResult } from "@/server/agenda/service";
 
 /**
  * 015 — La traducción entre el dominio y HTTP, en un solo sitio.
@@ -19,22 +20,52 @@ import { BookingError, type BookingResult } from "@/server/agenda/service";
 
 export type BookingPayload = {
   bookingId: string;
-  meetingLink: string | null;
+  /** Ausente en una cita PRESENCIAL: el enlace es del equipo, no del cliente. */
+  meetingLink?: string | null;
   linkPending: boolean;
   label: string;
+  /** 200 — Solo en la cita presencial: no hay enlace que dar ni que prometer. */
+  presencial?: true;
+  /** 200 — Solo en la agenda por recurso. */
+  service?: string;
+  resource?: string;
+  /** "con Luis" cuando el cliente elige; null cuando asigna el sistema. */
+  resourceLabel?: string | null;
+  /** Indicaciones antes de la cita, para repetírselas al cliente. */
+  instructions?: string | null;
 };
 
-export function bookingPayload(result: BookingResult): BookingPayload {
+/**
+ * El cuerpo de una reserva para quien conduce la conversación.
+ *
+ * `presencial` (200, `VERTICAL.cita.presencial`): la cita es en el local del
+ * negocio y el conector es solo el calendario del equipo. Entonces el enlace
+ * NO viaja —ni siquiera como null, que un cliente podría leer como "todavía
+ * no"— y `linkPending` va en false: no hay nada que prometer. La superficie
+ * del operador llama sin opciones y lo sigue viendo.
+ */
+export function bookingPayload(
+  result: BookingResult,
+  opts: { presencial?: boolean } = {}
+): BookingPayload {
+  const presencial = opts.presencial === true;
   return {
     bookingId: result.booking.id,
-    meetingLink: result.meetingLink,
+    ...(presencial ? {} : { meetingLink: result.meetingLink }),
     /**
      * true ⇒ la cita EXISTE pero el proveedor aún no entregó el enlace.
      * Confirma la cita y di que el enlace llega luego; no prometas uno que no
      * tienes.
      */
-    linkPending: result.linkPending,
+    linkPending: presencial ? false : result.linkPending,
     label: result.label,
+    ...(presencial ? { presencial: true as const } : {}),
+    ...(result.service
+      ? { service: result.service.name, instructions: result.service.instructions }
+      : {}),
+    ...(result.resource
+      ? { resource: result.resource.name, resourceLabel: result.resourceLabel ?? null }
+      : {}),
   };
 }
 

@@ -52,12 +52,17 @@ const postSchema = z.discriminatedUnion("kind", [
     conversationId: z.string().min(1).nullish(),
     startUtc: z.string().min(1),
     notes: z.string().nullish(),
+    // 200 — Agenda por recurso: qué y con quién (sin recurso, el primero libre).
+    serviceId: z.string().min(1).nullish(),
+    resourceId: z.string().min(1).nullish(),
   }),
   z.object({
     kind: z.literal("block"),
     startUtc: z.string().min(1),
     durationMinutes: z.number().int().min(5).max(600),
     notes: z.string().nullish(),
+    // 200 — Bloquear solo a un recurso; sin él, a todos.
+    resourceId: z.string().min(1).nullish(),
   }),
 ]);
 
@@ -83,6 +88,7 @@ export const POST = withAuth(async (session, req: Request) => {
         startUtc: body.data.startUtc,
         durationMinutes: body.data.durationMinutes,
         notes: body.data.notes ?? null,
+        resourceId: body.data.resourceId ?? null,
       });
       return Response.json({ booking: { id: block.id } }, { status: 201 });
     }
@@ -95,6 +101,8 @@ export const POST = withAuth(async (session, req: Request) => {
       notes: body.data.notes ?? null,
       source: "manual",
       requireOffer: false,
+      serviceId: body.data.serviceId ?? null,
+      resourceId: body.data.resourceId ?? null,
     });
     return Response.json(
       { booking: { id: result.booking.id }, ...bookingPayload(result) },

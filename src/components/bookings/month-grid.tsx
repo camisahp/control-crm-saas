@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { bookingSegments, hhmm, weekdayShortNames } from "@/lib/time/calendar";
 import { cn } from "@/lib/utils";
-import { bookingTitle, bookingTone, type Booking } from "./booking-look";
+import { bookingSubtitle, bookingTitle, bookingTone, type Booking } from "./booking-look";
 
 /**
  * 215 — La vista de mes: de lunes a domingo, hasta tres citas por día y
@@ -22,6 +22,7 @@ export function MonthGrid({
   selectedId,
   onSelect,
   onOpenDay,
+  resourceBg,
 }: {
   weeks: string[][];
   /** `AAAA-MM` del mes que se está viendo: los demás días se atenúan. */
@@ -32,6 +33,8 @@ export function MonthGrid({
   selectedId: string | null;
   onSelect: (b: Booking) => void;
   onOpenDay: (day: string) => void;
+  /** 200 — El color del recurso de cada cita (agenda por recurso). */
+  resourceBg?: (b: Booking) => string | null;
 }) {
   // Cada cita en el día en que EMPIEZA en la zona del negocio.
   const byDay = useMemo(() => {
@@ -106,11 +109,16 @@ export function MonthGrid({
                     b.status === "cancelada" && "text-text-3 line-through"
                   )}
                 >
-                  <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", bookingTone(b).dot)} />
+                  <span
+                    aria-hidden
+                    className={cn("h-2 w-2 shrink-0 rounded-full", bookingTone(b, resourceBg?.(b)).dot)}
+                  />
                   <span className="hidden shrink-0 font-mono text-[10.5px] text-text-3 sm:inline">
                     {hhmm(startMin)}
                   </span>
-                  <span className="truncate">{bookingTitle(b)}</span>
+                  <span className="truncate" title={bookingSubtitle(b) || undefined}>
+                    {bookingTitle(b)}
+                  </span>
                 </button>
               ))}
               {extra > 0 && (

@@ -5,6 +5,8 @@ import { clampListTo, isCalendarView, isIsoDate } from "@/lib/time/calendar";
 import { todayInTz } from "@/lib/time/slots";
 import { agendaEnabled } from "@/server/agenda/flag";
 import { getSettings } from "@/server/agenda/settings";
+import { getBranding } from "@/server/branding";
+import { VERTICAL } from "@/lib/vertical";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +30,10 @@ export default async function BookingsPage({
   const session = await getSessionOrNull();
   if (!session) redirect("/login");
 
-  const settings = await getSettings(session.organizationId);
+  const [settings, branding] = await Promise.all([
+    getSettings(session.organizationId),
+    getBranding(session.organizationId),
+  ]);
   const params = await searchParams;
   const view = isCalendarView(params.vista) ? params.vista : null;
   const listFrom = isIsoDate(params.desde) ? params.desde : null;
@@ -50,6 +55,12 @@ export default async function BookingsPage({
       }
       timezone={settings.timezone}
       weeklyHours={settings.weeklyHours}
+      labels={{
+        recurso: VERTICAL.recurso.singular,
+        recursos: VERTICAL.recurso.plural,
+        servicio: VERTICAL.servicio.singular,
+      }}
+      currency={branding.currency}
     />
   );
 }

@@ -12,7 +12,16 @@ type KbEntry = typeof schema.kbEntry.$inferSelect;
  * no por este endpoint. `resources` nace vacío para que el shape del consumidor
  * no cambie cuando existan recursos alternativos reales.
  */
-export function serializeBotProfile(profile: AgentProfile, kb: KbEntry[]) {
+export function serializeBotProfile(
+  profile: AgentProfile,
+  kb: KbEntry[],
+  /**
+   * 200 — Conocimiento DERIVADO (el catálogo de la agenda por recurso): se
+   * agrega después de lo que escribió el dueño, con la misma forma que una
+   * entrada `block`. No se guarda: se calcula en cada lectura.
+   */
+  generated: string[] = []
+) {
   return {
     profile: {
       name: profile.name,
@@ -21,7 +30,22 @@ export function serializeBotProfile(profile: AgentProfile, kb: KbEntry[]) {
       escalationRules: profile.escalationRules ?? null,
       greeting: profile.greeting ?? null,
     },
-    kb: renderKb(kb),
+    kb: renderKb([...kb, ...generated.map(generatedBlock)]),
     resources: [] as { label: string; url: string }[],
+  };
+}
+
+/** Un bloque derivado con la forma de una entrada del knowledge base. */
+function generatedBlock(content: string, i: number): KbEntry {
+  const at = new Date(0);
+  return {
+    id: `kb_generado_${i}`,
+    organizationId: "",
+    kind: "block",
+    question: null,
+    answer: null,
+    content,
+    createdAt: at,
+    updatedAt: at,
   };
 }

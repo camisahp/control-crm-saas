@@ -1,4 +1,4 @@
-import { isVoceroName } from "@/lib/brand";
+import { isControlChatsName } from "@/lib/brand";
 import { DEFAULT_BRANDING } from "@/lib/branding";
 import { getBranding } from "@/server/branding";
 import { BrandLogo } from "@/components/brand-mark";
@@ -13,7 +13,7 @@ export default async function AuthLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const branding = await getBranding().catch(() => DEFAULT_BRANDING);
-  const vocero = isVoceroName(branding.name);
+  const controlChats = isControlChatsName(branding.name);
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-subtle p-4">
       <div className="brand-grid absolute inset-0" aria-hidden />
@@ -23,7 +23,7 @@ export default async function AuthLayout({
       <div className="relative w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-4 text-center">
           <BrandLogo branding={branding} size="lg" />
-          {vocero ? (
+          {controlChats ? (
             <h1 className="text-[24px] font-bold leading-tight tracking-[-0.03em]">
               El CRM{" "}
               <span
@@ -33,7 +33,7 @@ export default async function AuthLayout({
                     "linear-gradient(92deg, var(--accent) 12%, #00b4f0 88%)",
                 }}
               >
-                que es tuyo.
+                para tus conversaciones.
               </span>
             </h1>
           ) : (

@@ -19,7 +19,7 @@ import type { AvailableSlot } from "@/server/agenda/availability";
  * enseñado dejaba al agente sin alternativas legítimas que aceptar.
  */
 
-export type SpreadSlot = AvailableSlot & {
+export type SpreadSlot<T extends AvailableSlot = AvailableSlot> = T & {
   /** Día del slot en la zona del negocio (YYYY-MM-DD). */
   dayIso: string;
   /** El día EN PALABRAS: "hoy miércoles 5 de agosto". */
@@ -28,15 +28,19 @@ export type SpreadSlot = AvailableSlot & {
   time: string;
 };
 
-export function spreadByDay(
-  slots: AvailableSlot[],
+/**
+ * Genérica desde 200: lo que traiga cada hueco además de lo básico (con quién,
+ * qué servicio) sobrevive al reparto.
+ */
+export function spreadByDay<T extends AvailableSlot>(
+  slots: T[],
   opts: { timezone: string; limit: number; perDay: number; now?: Date }
-): SpreadSlot[] {
+): SpreadSlot<T>[] {
   const { timezone, limit, perDay } = opts;
   const now = opts.now ?? new Date();
   if (limit <= 0 || perDay <= 0) return [];
 
-  const byDay = new Map<string, AvailableSlot[]>();
+  const byDay = new Map<string, T[]>();
   for (const slot of slots) {
     const dayIso = dayIsoInTz(new Date(slot.startUtc), timezone);
     const bucket = byDay.get(dayIso);
@@ -46,7 +50,7 @@ export function spreadByDay(
 
   // Los días ya vienen ordenados porque `slots` viene ordenado; el Map
   // conserva el orden de inserción.
-  const out: SpreadSlot[] = [];
+  const out: SpreadSlot<T>[] = [];
   for (const [dayIso, daySlots] of byDay) {
     for (const slot of daySlots.slice(0, perDay)) {
       if (out.length >= limit) return out;
@@ -129,8 +133,8 @@ export function aLoLargoDelDia<T>(slots: T[], tope: number): T[] {
  * completo (hasta `HUECOS_POR_FECHA`, repartidos a lo largo del día). Sin BD
  * ni reloj: tests/unit/agenda-huecos-por-fecha.test.ts.
  */
-export function armarHuecos(input: {
-  todos: AvailableSlot[];
+export function armarHuecos<T extends AvailableSlot>(input: {
+  todos: T[];
   timezone: string;
   now: Date;
   maxDaysAhead: number;
@@ -140,7 +144,7 @@ export function armarHuecos(input: {
   days?: number;
   date?: string | null;
   candidatosDelDia?: number;
-}): { slots: SpreadSlot[]; query: ConsultaDeHuecos } {
+}): { slots: SpreadSlot<T>[]; query: ConsultaDeHuecos } {
   const { timezone, now } = input;
   const hoy = dayIsoInTz(now, timezone);
   const horizonEnd = addDaysISO(hoy, input.maxDaysAhead);
@@ -206,6 +210,6 @@ export function armarHuecos(input: {
 }
 
 /** Los días (YYYY-MM-DD) que tienen algo que ofrecer. Los ausentes NO. */
-export function daysWithAgenda(slots: SpreadSlot[]): string[] {
+export function daysWithAgenda(slots: { dayIso: string }[]): string[] {
   return [...new Set(slots.map((s) => s.dayIso))];
 }

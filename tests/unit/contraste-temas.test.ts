@@ -227,15 +227,15 @@ describe("tema claro: no cambia", () => {
     // Son los que tenía cuando copiaba al tema oscuro de antes; si la barra
     // cambia, cambia también en claro, que es el tema que al dueño le gusta.
     expect(nav).toMatchObject({
-      "--bg": "#0b1327",
-      "--bg-subtle": "#070e20",
-      "--bg-panel": "#131f3d",
-      "--bg-hover": "#182750",
-      "--text": "#e8eefc",
-      "--text-2": "#a9b8dc",
-      "--text-3": "#7688b0",
-      "--border": "#263866",
-      "--border-strong": "#34498a",
+      "--bg": "#16241d",
+      "--bg-subtle": "#08110c",
+      "--bg-panel": "#1d3027",
+      "--bg-hover": "#233a2f",
+      "--text": "#eef3ee",
+      "--text-2": "#b5c7bb",
+      "--text-3": "#8fa99a",
+      "--border": "#2a4136",
+      "--border-strong": "#365446",
       "--ring": "var(--accent)",
     });
     expect(css).toMatch(/\.nav-dark \{\s*color-scheme: dark;/);

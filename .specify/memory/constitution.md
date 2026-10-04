@@ -50,14 +50,16 @@ TODOs diferidos:
     sin spec): sigue igual; esta enmienda no la toca.
 -->
 
-# Vocero CRM Constitution
+# Vocero CRM / ControlChats Constitution
 
-Vocero CRM es un CRM de WhatsApp con agente de IA, open source (MIT), self-hosted y
-gratuito, diseñado para que las agencias de IA lo desplieguen en el VPS de sus
-clientes: una instancia = un negocio. Esta constitución define las reglas no
-negociables del producto. Aplica a todas las fases del flujo de trabajo (specify,
-plan, tasks, implement). Cualquier conflicto entre una decisión de implementación y
-esta constitución SE RESUELVE A FAVOR de esta constitución.
+Vocero CRM es el núcleo de ControlChats: un CRM de WhatsApp con agente de IA,
+open source (MIT) y self-hosted. Se distribuye en dos ediciones compatibles:
+`EDITION=estandar`, para que una agencia despliegue una instancia para un negocio,
+e `EDITION=cloud`, donde ControlChats opera una instancia para muchas
+organizaciones aisladas, cada una en su subdominio. Esta constitución define las
+reglas no negociables del producto. Aplica a todas las fases del flujo de trabajo
+(specify, plan, tasks, implement). Cualquier conflicto entre una decisión de
+implementación y esta constitución SE RESUELVE A FAVOR de esta constitución.
 
 ## Core Principles
 
@@ -124,14 +126,21 @@ fuga de soberanía que rompe la promesa "gratis y tuyo".
 ### III. Multi-Tenancy Real
 
 El sistema sirve a organizaciones independientes desde una sola instancia lógica.
-En Vocero cada instancia sirve a UN negocio, pero el modelo de datos es
-multi-tenant real (organización del plugin de auth) para mantener el aislamiento
-exigible y no cerrar la puerta a evoluciones.
+En `EDITION=estandar`, una instancia sirve a UN negocio; en `EDITION=cloud`, la
+misma instancia sirve a MUCHOS negocios. El modelo de datos es multi-tenant real
+(organización del plugin de auth) en ambas ediciones.
 
 - Cada organización (tenant) gestiona sus propios usuarios, roles y permisos.
 - El identificador de tenant (`organization_id`) es un parámetro de primer nivel en
   el modelo de datos y en la capa de acceso a datos, no un campo opcional añadido a
   posteriori. Toda tabla de dominio lo lleva NOT NULL e indexado org-first.
+- En `EDITION=cloud`, el tenant se resuelve por Host
+  (`{slug}.controlchats.com` → `organization.slug`); los hosts `www`, `admin`,
+  `alta` y los de infraestructura se reservan. No se infiere jamás desde "la
+  única organización" ni "la primera membresía".
+- En `EDITION=cloud`, una sesión requiere membresía explícita en la organización
+  resuelta por Host y las cookies son host-only. Un subdominio desconocido no
+  revela datos ni marca de ninguna organización.
 
 **Rationale**: Multi-tenancy diseñado desde el inicio evita reescrituras costosas y
 hace cumplible el aislamiento del Principio I.
@@ -230,9 +239,11 @@ conversaciones de WhatsApp de UN negocio* se rechaza.
 - WhatsApp Cloud API es el canal; el producto es el CRM. Features de canal que no
   sirvan a atender/organizar/convertir (broadcast masivo, scraping de números,
   flujos visuales genéricos) quedan FUERA del alcance de v1.
-- Toda feature MUST servir a la agencia que despliega o al negocio que opera UNA
-  instancia. Lo que solo sirva a una plataforma centralizada (billing, planes,
-  multi-instancia) queda FUERA.
+- Toda feature MUST servir a la agencia que despliega, al negocio que opera una
+  instancia o a la capa de plataforma necesaria para operar organizaciones
+  aisladas en `EDITION=cloud`. El alta controlada, la administración segura y el
+  onboarding de canales son alcance de plataforma; billing, reventa, borrado
+  automático y planes siguen FUERA hasta contar con una spec propia.
 
 **Rationale**: Un foco vertical explícito mantiene el modelo de datos alineado con el
 negocio real y da un criterio claro para aceptar o rechazar alcance.
@@ -265,6 +276,9 @@ el piso, no el techo.
   destinatarios de una allowlist, NUNCA mensajes en ráfaga (anti-flood obligatorio), y
   minimizar el volumen. La integridad de la cuenta del operador es un activo a proteger, en
   línea con el Principio I.
+- **Aislamiento A/B en cloud.** Antes de declarar terminada una capacidad cloud,
+  el self-test usa dos organizaciones vivas y demuestra que A no puede leer ni
+  modificar bandeja, pipeline, agenda, media, sesión, webhook ni datos de B.
 
 **Rationale**: El gate técnico no detecta que un agente "se calló", que una tarjeta no
 llegó como un solo mensaje, o que un botón de UI no disparó nada — eso solo aparece
@@ -287,9 +301,9 @@ Estas restricciones derivan de los Principios I y II y son verificables en revis
   través de adaptadores dedicados (cliente Graph API propio, adaptador LLM
   OpenRouter-compatible), no dispersas por el dominio.
 - **Instancia pública endurecida**: las rutas de mock/desarrollo devuelven 404
-  incondicional en producción; el registro se cierra tras la primera organización
-  (salvo habilitación explícita); los entornos de prueba internos JAMÁS alcanzan la
-  API real de WhatsApp.
+  incondicional en producción; en `EDITION=cloud` el registro libre está cerrado
+  y las organizaciones solo nacen por alta controlada; los entornos de prueba
+  internos JAMÁS alcanzan la API real de WhatsApp.
 
 ## Flujo de Desarrollo y Puertas de Calidad
 
@@ -334,4 +348,4 @@ práctica, convención o preferencia; ante un conflicto, gana la constitución.
 - **Propagación**: al enmendar la constitución se revisan y, si procede, se actualizan
   las plantillas dependientes (plan, spec, tasks).
 
-**Version**: 1.4.0 | **Ratified**: 2026-07-09 | **Last Amended**: 2026-08-26
+**Version**: 1.5.0 | **Ratified**: 2026-07-09 | **Last Amended**: 2026-10-04

@@ -1,6 +1,8 @@
 import { count, eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
+import { VERTICAL } from "@/lib/vertical";
+import type { EtapaSembrada } from "@/lib/vertical-config";
 
 /** Etapas sembradas del pipeline (US2). */
 const SEED_STAGES: { name: string; kind: "open" | "won" | "lost" }[] = [
@@ -10,6 +12,20 @@ const SEED_STAGES: { name: string; kind: "open" | "won" | "lost" }[] = [
   { name: "Cliente", kind: "won" },
   { name: "Perdido", kind: "lost" },
 ];
+
+/**
+ * 200 — El tablero con el que nace la organización: el del giro
+ * (`VERTICAL.etapas.seed`) si define uno usable, si no el de siempre. "Usable"
+ * = trae al menos una etapa abierta, que es donde nace cada lead nuevo.
+ */
+export function etapasIniciales(
+  seed: readonly EtapaSembrada[] = VERTICAL.etapas.seed
+): EtapaSembrada[] {
+  const limpias = seed
+    .map((e) => ({ name: e.name.trim(), kind: e.kind }))
+    .filter((e) => e.name.length > 0);
+  return limpias.some((e) => e.kind === "open") ? limpias : SEED_STAGES;
+}
 
 /**
  * Primer registro de la instancia: crea la organización, deja al usuario como
@@ -43,7 +59,7 @@ export async function onUserCreated(userId: string, userName: string) {
       role: "owner",
     });
     await tx.insert(schema.pipelineStage).values(
-      SEED_STAGES.map((s, i) => ({
+      etapasIniciales().map((s, i) => ({
         id: newId("stage"),
         organizationId: orgId,
         name: s.name,

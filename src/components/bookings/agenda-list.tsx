@@ -4,7 +4,14 @@ import { useMemo } from "react";
 import { AlertTriangle, CalendarDays, Sparkles, Video } from "lucide-react";
 import { bookingSegments, hhmm, longDayLabel, spanLabel, type DateRange } from "@/lib/time/calendar";
 import { cn } from "@/lib/utils";
-import { STATUS_LABEL, bookingTitle, bookingTone, hasDeliveryIssue, type Booking } from "./booking-look";
+import {
+  STATUS_LABEL,
+  bookingSubtitle,
+  bookingTitle,
+  bookingTone,
+  hasDeliveryIssue,
+  type Booking,
+} from "./booking-look";
 
 /**
  * 215 — La Lista: las citas del rango, agrupadas por día, como la «Agenda» de
@@ -18,6 +25,7 @@ export function AgendaList({
   today,
   selectedId,
   onSelect,
+  resourceBg,
 }: {
   range: DateRange;
   bookings: Booking[];
@@ -25,6 +33,8 @@ export function AgendaList({
   today: string;
   selectedId: string | null;
   onSelect: (b: Booking) => void;
+  /** 200 — El color del recurso de cada cita (agenda por recurso). */
+  resourceBg?: (b: Booking) => string | null;
 }) {
   const groups = useMemo(() => {
     const map = new Map<string, { booking: Booking; startMin: number; endMin: number }[]>();
@@ -81,7 +91,10 @@ export function AgendaList({
                   <span className="w-[6.5rem] shrink-0 font-mono text-[12px] text-text-2">
                     {hhmm(startMin)} – {hhmm(endMin)}
                   </span>
-                  <span aria-hidden className={cn("h-2.5 w-2.5 shrink-0 rounded-full", bookingTone(b).dot)} />
+                  <span
+                    aria-hidden
+                    className={cn("h-2.5 w-2.5 shrink-0 rounded-full", bookingTone(b, resourceBg?.(b)).dot)}
+                  />
                   <span className="min-w-0 flex-1">
                     <span
                       className={cn(
@@ -96,8 +109,8 @@ export function AgendaList({
                     </span>
                     <span className="block truncate text-xs text-text-3">
                       {b.kind === "block"
-                        ? `Bloqueo · ${b.durationMinutes} min`
-                        : `${b.durationMinutes} min · ${b.source === "ai" ? "Agendó la IA" : "Manual"}${b.isTest ? " · Prueba" : ""}`}
+                        ? `Bloqueo · ${b.durationMinutes} min${b.resource ? ` · ${b.resource.name}` : ""}`
+                        : `${bookingSubtitle(b) ? `${bookingSubtitle(b)} · ` : ""}${b.durationMinutes} min · ${b.source === "ai" ? "Agendó la IA" : "Manual"}${b.isTest ? " · Prueba" : ""}`}
                     </span>
                   </span>
                   {hasDeliveryIssue(b) && (

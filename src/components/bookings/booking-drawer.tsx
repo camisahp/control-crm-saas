@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, MessageSquareText, Sparkles, Video, X } from "lucide-react";
+import { CalendarClock, ClipboardList, MessageSquareText, Scissors, Sparkles, Video, X } from "lucide-react";
 import { addDaysISO } from "@/lib/time/slots";
 import {
   bookingSegments,
@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { formatMoneyCents } from "@/lib/money";
 import { bookingTitle, bookingTone, canRetrySync, statusLabel, type Booking } from "./booking-look";
 
 /**
@@ -34,6 +35,9 @@ export function BookingDrawer({
   onClose,
   onAct,
   onRescheduled,
+  labels,
+  currency,
+  resourceBg,
 }: {
   booking: Booking;
   timezone: string;
@@ -44,6 +48,12 @@ export function BookingDrawer({
   onAct: (body: Record<string, unknown>) => Promise<ActResult>;
   /** La cita se movió: el calendario salta a su día nuevo. */
   onRescheduled: (startUtc: string) => void;
+  /** 200 — Cómo se llaman el recurso y el servicio en este giro. */
+  labels?: { recurso: string; servicio: string };
+  /** 200 — Moneda del negocio, para el precio del servicio. */
+  currency?: string;
+  /** 200 — Color del recurso de la cita. */
+  resourceBg?: string | null;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +89,11 @@ export function BookingDrawer({
   const isSession = b.kind === "session";
   const active = b.status === "agendada";
   const endMs = Date.parse(b.scheduledAtUtc) + b.durationMinutes * 60_000;
-  const tone = bookingTone(b);
+  const tone = bookingTone(b, resourceBg);
+  const precio =
+    b.service?.priceCents !== undefined && b.service?.priceCents !== null
+      ? formatMoneyCents(b.service.priceCents, currency ?? "MXN")
+      : null;
 
   return (
     <>
@@ -167,6 +181,40 @@ export function BookingDrawer({
             )}
           </section>
 
+          {/* 200 — Qué servicio, con quién y qué indicaciones se le dieron. */}
+          {(b.service || b.resource) && (
+            <section className="space-y-2 border-b p-4" aria-label="Servicio y recurso">
+              {b.service && (
+                <p className="flex items-start gap-2 text-sm">
+                  <Scissors className="mt-0.5 h-4 w-4 shrink-0 text-text-3" />
+                  <span>
+                    <span className="text-text-3">{labels?.servicio ?? "Servicio"}: </span>
+                    <span className="font-semibold">{b.service.name}</span>
+                    {precio && <span className="text-text-2"> · {precio}</span>}
+                  </span>
+                </p>
+              )}
+              {b.resource && (
+                <p className="flex items-center gap-2 text-sm">
+                  <span aria-hidden className={cn("ml-0.5 h-3 w-3 shrink-0 rounded-full", resourceBg ?? "bg-text-3")} />
+                  <span>
+                    <span className="text-text-3">{labels?.recurso ?? "Recurso"}: </span>
+                    <span className="font-semibold">{b.resource.name}</span>
+                  </span>
+                </p>
+              )}
+              {b.service?.instructions && (
+                <div className="flex items-start gap-2 rounded-sm bg-subtle p-2.5 text-sm">
+                  <ClipboardList className="mt-0.5 h-4 w-4 shrink-0 text-text-3" />
+                  <div>
+                    <p className="kicker mb-0.5">Indicaciones antes de la cita</p>
+                    <p className="whitespace-pre-wrap text-text-2">{b.service.instructions}</p>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
           {/* Con quién y dónde (la nota de un bloqueo ya es su título) */}
           {((b.contact && b.conversationId) || b.meetingLink || (b.notes && isSession)) && (
             <section className="space-y-2 border-b p-4">
@@ -227,6 +275,7 @@ export function BookingDrawer({
             <Reschedule
               today={today}
               busy={busy}
+              booking={b}
               onCancel={() => setRescheduling(false)}
               onPick={async (startUtc) => {
                 if (await run({ action: "reschedule", startUtc })) {
@@ -302,16 +351,24 @@ export function BookingDrawer({
 function Reschedule({
   today,
   busy,
+  booking,
   onCancel,
   onPick,
 }: {
   today: string;
   busy: boolean;
+  /** 200 — Con servicio, los huecos de ESE servicio con SU recurso, sin contarse a sí misma. */
+  booking: Booking;
   onCancel: () => void;
   onPick: (startUtc: string) => void;
 }) {
   const [slots, setSlots] = useState<DaySlot[] | null>(null);
   const [failed, setFailed] = useState(false);
+  // Primitivos: un refresco por SSE trae objetos nuevos de la misma cita y no
+  // debe volver a pedir la disponibilidad.
+  const bookingId = booking.id;
+  const serviceId = booking.service?.id ?? null;
+  const resourceId = booking.resource?.id ?? null;
   const [day, setDay] = useState<string | null>(null);
 
   useEffect(() => {
@@ -319,7 +376,14 @@ function Reschedule({
     const abort = new AbortController();
     let alive = true;
     void (async () => {
-      const res = await fetch("/api/calendar/availability", { signal: abort.signal }).catch(
+      const query = serviceId
+        ? `?${new URLSearchParams({
+            service: serviceId,
+            ...(resourceId ? { resource: resourceId } : {}),
+            exclude: bookingId,
+          }).toString()}`
+        : "";
+      const res = await fetch(`/api/calendar/availability${query}`, { signal: abort.signal }).catch(
         () => null
       );
       if (!alive) return;
@@ -335,7 +399,7 @@ function Reschedule({
       alive = false;
       abort.abort();
     };
-  }, []);
+  }, [bookingId, serviceId, resourceId]);
 
   const days = useMemo(() => groupSlotsByDay(slots ?? []), [slots]);
   const selected = day ?? days[0]?.[0] ?? null;

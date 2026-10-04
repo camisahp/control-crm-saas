@@ -26,6 +26,15 @@ export type BookingListItem = {
   linkPending: boolean;
   isTest: boolean;
   notes: string | null;
+  /** 200 — Con quién (agenda por recurso); null = la agenda única o un bloqueo de todos. */
+  resource: { id: string; name: string; color: string | null } | null;
+  /** 200 — Qué se agendó, con sus indicaciones antes de la cita. */
+  service: {
+    id: string;
+    name: string;
+    instructions: string | null;
+    priceCents: number | null;
+  } | null;
 };
 
 /** Tope del listado sin rango: el de siempre, que leen los guiones E2E. */
@@ -50,6 +59,11 @@ type Row = {
   booking: typeof schema.booking.$inferSelect;
   contactId: string | null;
   contactName: string | null;
+  resourceName?: string | null;
+  resourceColor?: string | null;
+  serviceName?: string | null;
+  serviceInstructions?: string | null;
+  servicePriceCents?: number | null;
 };
 
 function baseQuery() {
@@ -58,9 +72,16 @@ function baseQuery() {
       booking: schema.booking,
       contactId: schema.contact.id,
       contactName: schema.contact.name,
+      resourceName: schema.agendaResource.name,
+      resourceColor: schema.agendaResource.color,
+      serviceName: schema.agendaService.name,
+      serviceInstructions: schema.agendaService.instructions,
+      servicePriceCents: schema.agendaService.priceCents,
     })
     .from(schema.booking)
-    .leftJoin(schema.contact, eq(schema.booking.contactId, schema.contact.id));
+    .leftJoin(schema.contact, eq(schema.booking.contactId, schema.contact.id))
+    .leftJoin(schema.agendaResource, eq(schema.booking.resourceId, schema.agendaResource.id))
+    .leftJoin(schema.agendaService, eq(schema.booking.serviceId, schema.agendaService.id));
 }
 
 /** Las últimas 200 citas: el listado de siempre, para quien no pide rango. */
@@ -138,5 +159,20 @@ function toListItem(r: Row, timezone: string): BookingListItem {
     linkPending: r.booking.linkPending,
     isTest: r.booking.isTest,
     notes: r.booking.notes,
+    resource: r.booking.resourceId
+      ? {
+          id: r.booking.resourceId,
+          name: r.resourceName ?? "",
+          color: r.resourceColor ?? null,
+        }
+      : null,
+    service: r.booking.serviceId
+      ? {
+          id: r.booking.serviceId,
+          name: r.serviceName ?? "",
+          instructions: r.serviceInstructions ?? null,
+          priceCents: r.servicePriceCents ?? null,
+        }
+      : null,
   };
 }

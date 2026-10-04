@@ -28,7 +28,11 @@ export function bookingTitle(b: Booking): string {
  * viene es relleno del acento, como un evento de Google; lo que ya pasó se
  * apaga a su tinta de estado para que la semana se lea de un vistazo.
  */
-export function bookingTone(b: Booking): { box: string; dot: string } {
+export function bookingTone(
+  b: Booking,
+  /** 200 — Clase de fondo del recurso (paleta de identidad): una cita que viene se pinta del color de su barbero. */
+  resourceBg?: string | null
+): { box: string; dot: string } {
   if (b.status === "cancelada") {
     return {
       box: "border-dashed border-border-strong bg-subtle text-text-3 line-through",
@@ -44,7 +48,32 @@ export function bookingTone(b: Booking): { box: string; dot: string } {
   if (b.status === "no_show") {
     return { box: "border-warning-soft bg-warning-tint text-warning-text", dot: "bg-warning" };
   }
+  if (resourceBg) {
+    return { box: `border-transparent ${resourceBg} text-brand-fg`, dot: resourceBg };
+  }
   return { box: "border-transparent bg-brand text-brand-fg", dot: "bg-brand" };
+}
+
+/** 200 — "Corte clásico · Luis": qué y con quién, o vacío en la agenda única. */
+export function bookingSubtitle(b: Booking): string {
+  return [b.service?.name, b.resource?.name].filter((x) => x && x.trim()).join(" · ");
+}
+
+/** 200 — Cómo se ve un recurso en Citas: su nombre y su color. */
+export type ResourceLook = { id: string; name: string; colorClass: string; active: boolean };
+
+/**
+ * PURA — 200: las citas de UN recurso. Los bloqueos del negocio entero (sin
+ * recurso) se ven en todos: también le quitan tiempo a ese barbero.
+ */
+export function filterByResource<T extends { kind: string; resource: { id: string } | null }>(
+  bookings: readonly T[],
+  resourceId: string | null
+): T[] {
+  if (!resourceId) return [...bookings];
+  return bookings.filter(
+    (b) => b.resource?.id === resourceId || (b.kind === "block" && !b.resource)
+  );
 }
 
 /**

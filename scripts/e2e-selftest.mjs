@@ -210,7 +210,7 @@ async function main() {
     method: "POST",
     body: JSON.stringify({
       phoneNumberId: PN,
-      from: "5214621349768",
+      from: "5215512345678",
       name: "Kevin MX",
       text: "uno",
     }),
@@ -218,7 +218,7 @@ async function main() {
   await sleep(800);
   await api("/api/dev/wa-mock/inbound", {
     method: "POST",
-    body: JSON.stringify({ phoneNumberId: PN, from: "524621349768", text: "dos" }),
+    body: JSON.stringify({ phoneNumberId: PN, from: "525512345678", text: "dos" }),
   });
   await sleep(800);
   const contacts =

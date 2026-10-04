@@ -60,3 +60,21 @@ export async function cleanupOrphanRuns(): Promise<void> {
     console.error("[boot] limpieza de corridas huérfanas falló:", err);
   }
 }
+
+/**
+ * 200 — Trabajo periódico de la agenda por recurso: el "regreso" (p. ej.
+ * "Vuelve en 3 semanas"). In-process, como el resto del trabajo en segundo
+ * plano: sin colas externas. No arranca con la agenda apagada ni si el giro
+ * no tiene regreso (`src/lib/vertical.ts`). Nunca tumba el arranque.
+ */
+export function startAgendaJobs(): void {
+  void import("@/server/agenda/etapas")
+    .then(({ iniciarTrabajoDeRegreso }) => {
+      if (iniciarTrabajoDeRegreso()) {
+        console.log("[boot] agenda: trabajo de regreso programado (cada hora)");
+      }
+    })
+    .catch((err) => {
+      console.error("[boot] no pude programar el trabajo de regreso de la agenda:", err);
+    });
+}

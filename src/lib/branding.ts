@@ -45,22 +45,22 @@ export type Branding = {
 };
 
 export const DEFAULT_BRANDING: Branding = {
-  name: "Vocero",
-  // El azul eléctrico de vocerocrm.com: la instancia recién instalada se ve
-  // igual que la landing. Una agencia lo cambia en Configuración → Marca.
+  name: "Control Chats",
+  // Azul de la marca Control Chats. Una organización puede personalizarlo en
+  // Configuración → Marca sin alterar la marca predeterminada de la plataforma.
   accent: "#0d5bff",
   currency: DEFAULT_CURRENCY,
   favicon: null,
 };
 
 /**
- * Presets. El primero es la marca Vocero (valores exactos de la landing); los
+ * Presets. El primero es la marca Control Chats; los
  * demás son los tonos sobrios del handoff Atlas, que siguen disponibles para
  * quien quiera un CRM más discreto.
  */
 export const ACCENT_PRESETS: Record<string, { label: string; set: AccentSet }> = {
   "#0d5bff": {
-    label: "Azul Vocero",
+    label: "Azul Control Chats",
     set: { accent: "#0d5bff", hover: "#0a4de6", soft: "#d3e2ff", tint: "#ebf1ff", text: "#0038d8", fg: "#ffffff" },
   },
   "#3f5972": {
@@ -140,7 +140,7 @@ const DARK_BG: Rgb = { r: 0x1c, g: 0x26, b: 0x3c };
  * contra ella y no contra la página: si siguiera a DARK_BG, cambiar el tema
  * oscuro repintaría también la barra del tema claro.
  */
-const NAV_BG: Rgb = { r: 0x0b, g: 0x13, b: 0x27 };
+const NAV_BG: Rgb = { r: 0x16, g: 0x24, b: 0x1d };
 
 /** Tinta ENCIMA del acento: blanco solo si pasa AA (4.5:1), si no, casi negro. */
 const INK_ON_LIGHT = "#0f1419";
@@ -275,7 +275,13 @@ export function accentCssVariables(accentHex: string): string {
 }
 
 export function normalizeBranding(input: Partial<Branding> | null): Branding {
-  const name = input?.name?.trim().slice(0, 30) || DEFAULT_BRANDING.name;
+  const rawName = input?.name?.trim().slice(0, 30);
+  // Migración compatible de la marca que venía guardada en instalaciones
+  // existentes. Solo cambia el nombre exacto del producto anterior; una marca
+  // personalizada de un cliente se respeta tal cual.
+  const name = !rawName || rawName.toLowerCase() === "vocero"
+    ? DEFAULT_BRANDING.name
+    : rawName;
   const accent =
     input?.accent && isValidHex(input.accent)
       ? input.accent.toLowerCase()

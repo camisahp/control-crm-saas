@@ -14,7 +14,13 @@ export const dynamic = "force-dynamic";
 type Params = { params: Promise<{ id: string }> };
 
 const patchSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("reschedule"), startUtc: z.string().min(1) }),
+  z.object({
+    action: z.literal("reschedule"),
+    startUtc: z.string().min(1),
+    // 200 — Moverla con otro recurso o a otro servicio; sin ellos, los suyos.
+    resourceId: z.string().min(1).nullish(),
+    serviceId: z.string().min(1).nullish(),
+  }),
   z.object({ action: z.literal("cancel") }),
   z.object({
     action: z.literal("status"),
@@ -40,6 +46,8 @@ export const PATCH = withAuth(async (session, req: Request, ctx: Params) => {
           organizationId: session.organizationId,
           bookingId: id,
           startUtc: body.data.startUtc,
+          resourceId: body.data.resourceId ?? null,
+          serviceId: body.data.serviceId ?? null,
         });
         return Response.json({ ok: true, label: result.label });
       }

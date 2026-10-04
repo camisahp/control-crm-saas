@@ -11,7 +11,14 @@ import { scoped } from "@/lib/db/tenant";
  * en cada ronda (la vigente es siempre la última) y se limpia al reservar.
  */
 
-export type OfferedSlot = { startUtc: string; label: string };
+export type OfferedSlot = {
+  startUtc: string;
+  label: string;
+  /** 200 — Con quién se ofreció ese instante. Ausente = la agenda única. */
+  resourceId?: string | null;
+  /** 200 — Para qué servicio (su duración es la de la cita). */
+  serviceId?: string | null;
+};
 
 /** Reemplaza TODA la oferta de la conversación, en una transacción. */
 export async function replaceOffers(
@@ -38,6 +45,8 @@ export async function replaceOffers(
         conversationId,
         startUtc: new Date(s.startUtc),
         label: s.label,
+        resourceId: s.resourceId ?? null,
+        serviceId: s.serviceId ?? null,
       }))
     );
   });
@@ -52,6 +61,8 @@ export async function getOffers(
     .select({
       startUtc: schema.offeredSlot.startUtc,
       label: schema.offeredSlot.label,
+      resourceId: schema.offeredSlot.resourceId,
+      serviceId: schema.offeredSlot.serviceId,
     })
     .from(schema.offeredSlot)
     .where(
@@ -63,9 +74,13 @@ export async function getOffers(
     )
     .orderBy(asc(schema.offeredSlot.startUtc));
 
+  // Recurso y servicio solo cuando los hay: la oferta de la agenda única
+  // conserva exactamente su forma de siempre.
   return rows.map((r) => ({
     startUtc: r.startUtc.toISOString(),
     label: r.label,
+    ...(r.resourceId ? { resourceId: r.resourceId } : {}),
+    ...(r.serviceId ? { serviceId: r.serviceId } : {}),
   }));
 }
 

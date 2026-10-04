@@ -312,3 +312,42 @@ export function partsInTz(
     weekday: f.weekday.format(d),
   };
 }
+
+/**
+ * 200 — La etiqueta NATURAL de un hueco, como se le diría al cliente:
+ * "mañana martes 29 a las 5:00 pm", "sábado 3 de octubre a las 11:30 am".
+ *
+ * El mes solo aparece si no es el de hoy (en la zona del negocio): dentro del
+ * mes, "martes 29" no se presta a confusión y se lee como WhatsApp. La hora va
+ * en 12 h con am/pm porque así se dice en México; `timeInTz` sigue en 24 h
+ * para la UI.
+ */
+export function naturalLabelInTz(startUtc: string, tz: string, now?: Date): string {
+  const d = new Date(startUtc);
+  if (Number.isNaN(d.getTime())) return "";
+  const reference = now ?? new Date();
+  const dayIso = dayIsoInTz(d, tz);
+  const todayIso = dayIsoInTz(reference, tz);
+
+  let prefijo = "";
+  if (dayIso === todayIso) prefijo = "hoy ";
+  else if (dayIso === addDaysISO(todayIso, 1)) prefijo = "mañana ";
+
+  const parts = new Intl.DateTimeFormat("es-MX", {
+    timeZone: tz,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  const map: Record<string, string> = {};
+  for (const p of parts) map[p.type] = p.value;
+
+  const hour24 = Number(map.hour) % 24;
+  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+  const ampm = hour24 < 12 ? "am" : "pm";
+  const mes = dayIso.slice(0, 7) === todayIso.slice(0, 7) ? "" : ` de ${map.month}`;
+  return `${prefijo}${map.weekday} ${Number(map.day)}${mes} a las ${hour12}:${map.minute} ${ampm}`;
+}

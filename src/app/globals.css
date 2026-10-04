@@ -18,29 +18,29 @@
     color-scheme: light;
 
     /* Neutros: papel frío de la landing */
-    --bg: #ffffff;
-    --bg-subtle: #f6f8fc;
-    --bg-panel: #eef2f9;
-    --bg-hover: #e9eef8;
+    --bg: #fffdf9;
+    --bg-subtle: #f6f1e9;
+    --bg-panel: #eee6d9;
+    --bg-hover: #e9e0d1;
     /* Lo que flota sobre la página: diálogos, cajones, menús. En claro es el
        mismo blanco de siempre; en oscuro se aclara para despegarse. */
-    --bg-raised: #ffffff;
-    --text: #0a1730;
-    --text-2: #42506b;
-    --text-3: #8391aa;
-    --text-4: #aab4c8;
-    --border: #e8edf6;
-    --border-strong: #dde5f1;
+    --bg-raised: #fffdf9;
+    --text: #1f2b25;
+    --text-2: #46564d;
+    --text-3: #74837a;
+    --text-4: #a7b1a9;
+    --border: #ebe3d6;
+    --border-strong: #dfd5c5;
     /* Chips dentro de una fila y la fila bajo el cursor. En claro coinciden
        con --bg y --bg-subtle; en oscuro NO: ahí --bg-subtle es más oscuro que
        --bg y un chip con fondo --bg desaparece dentro de la fila. */
-    --chip-bg: #ffffff;
-    --row-hover: #f6f8fc;
+    --chip-bg: #fffdf9;
+    --row-hover: #f6f1e9;
     /* 215 — Lo no hábil del calendario de Citas (ver .cal-off). */
-    --cal-off: #f6f8fc;
+    --cal-off: #f6f1e9;
 
     /* Chat: el cliente entra en verde WhatsApp, el CRM contesta en el acento */
-    --chat-bg: #f6f8fc;
+    --chat-bg: #f6f1e9;
     --bubble-in: #eaf7ef;
     --bubble-in-border: #d7eede;
     --bubble-out: var(--accent-tint);
@@ -86,17 +86,16 @@
     --info-text: #0038d8;
 
     /* Superficies auxiliares */
-    --overlay: rgba(4, 16, 46, 0.55);
+    --overlay: rgba(16, 27, 21, 0.55);
     --knob: #ffffff;
 
     /* Radios y sombras (las de la landing, con tinte azul marino) */
     --radius-sm: 9px;
     --radius: 12px;
     --radius-lg: 16px;
-    --shadow-sm: 0 1px 2px rgba(8, 27, 82, 0.06);
-    --shadow-md: 0 14px 40px -16px rgba(8, 27, 82, 0.16);
-    --shadow-pop: 0 30px 80px -20px rgba(8, 27, 82, 0.22),
-      0 8px 24px -12px rgba(8, 27, 82, 0.12);
+    --shadow-sm: 0 1px 2px rgba(31, 43, 37, 0.06);
+    --shadow-md: 0 14px 40px -16px rgba(31, 43, 37, 0.16);
+    --shadow-pop: 0 30px 80px -20px rgba(31, 43, 37, 0.22), 0 8px 24px -12px rgba(31, 43, 37, 0.12);
 
     /* Densidad de filas de conversación */
     --row-py: 11px;
@@ -200,19 +199,19 @@
   */
   .nav-dark {
     color-scheme: dark;
-    --bg: #0b1327;
-    --bg-subtle: #070e20;
-    --bg-panel: #131f3d;
-    --bg-raised: #131f3d;
-    --bg-hover: #182750;
-    --text: #e8eefc;
-    --text-2: #a9b8dc;
-    --text-3: #7688b0;
-    --text-4: #55648a;
-    --border: #263866;
-    --border-strong: #34498a;
-    --chip-bg: #142040;
-    --row-hover: #111b36;
+    --bg: #16241d;
+    --bg-subtle: #08110c;
+    --bg-panel: #1d3027;
+    --bg-raised: #1d3027;
+    --bg-hover: #233a2f;
+    --text: #eef3ee;
+    --text-2: #b5c7bb;
+    --text-3: #8fa99a;
+    --text-4: #5f7a6c;
+    --border: #2a4136;
+    --border-strong: #365446;
+    --chip-bg: #1b2c23;
+    --row-hover: #142119;
     --accent-ink: var(--accent-text);
     --ring: var(--accent);
     --shadow-pop: 0 30px 80px -20px rgba(0, 0, 0, 0.75),
@@ -291,7 +290,7 @@
     height: 460px;
     left: -140px;
     bottom: -180px;
-    background: radial-gradient(circle, rgba(0, 198, 245, 0.14), transparent 65%);
+    background: radial-gradient(circle, rgba(176, 138, 79, 0.16), transparent 65%);
     animation: brand-drift 18s ease-in-out infinite alternate-reverse;
   }
   @keyframes brand-drift {

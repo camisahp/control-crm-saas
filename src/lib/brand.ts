@@ -33,6 +33,6 @@ export const BRAND_CYAN_ON_TILE = "#3fdcff";
  * producto en su barra lateral ni en su pestaña. El nombre por defecto es
  * "Vocero", así que una instancia sin configurar la ve de inmediato.
  */
-export function isVoceroName(name: string): boolean {
-  return name.trim().toLowerCase() === "vocero";
+export function isControlChatsName(name: string): boolean {
+  return name.trim().toLowerCase() === "control chats";
 }

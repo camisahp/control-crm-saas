@@ -13,7 +13,13 @@ import {
 } from "@/lib/time/calendar";
 import type { WeeklyHours } from "@/server/agenda/settings";
 import { cn } from "@/lib/utils";
-import { bookingTitle, bookingTone, hasDeliveryIssue, type Booking } from "./booking-look";
+import {
+  bookingSubtitle,
+  bookingTitle,
+  bookingTone,
+  hasDeliveryIssue,
+  type Booking,
+} from "./booking-look";
 
 /**
  * 215 — La rejilla de horas de las vistas Día y Semana, como Google Calendar:
@@ -46,6 +52,7 @@ export function TimeGrid({
   onSelect,
   onEmptySlot,
   onOpenDay,
+  resourceBg,
 }: {
   days: string[];
   bookings: Booking[];
@@ -61,6 +68,8 @@ export function TimeGrid({
   onSelect: (b: Booking) => void;
   onEmptySlot: (day: string, time: string) => void;
   onOpenDay: (day: string) => void;
+  /** 200 — El color del recurso de cada cita (agenda por recurso). */
+  resourceBg?: (b: Booking) => string | null;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrolledFor = useRef<string | null>(null);
@@ -160,6 +169,7 @@ export function TimeGrid({
             selectedId={selectedId}
             onSelect={onSelect}
             onEmptySlot={onEmptySlot}
+            resourceBg={resourceBg}
           />
         ))}
       </div>
@@ -176,6 +186,7 @@ function DayColumn({
   selectedId,
   onSelect,
   onEmptySlot,
+  resourceBg,
 }: {
   day: string;
   placed: Placed[];
@@ -186,6 +197,7 @@ function DayColumn({
   selectedId: string | null;
   onSelect: (b: Booking) => void;
   onEmptySlot: (day: string, time: string) => void;
+  resourceBg?: (b: Booking) => string | null;
 }) {
   return (
     <div
@@ -216,6 +228,7 @@ function DayColumn({
           narrow={narrow}
           selected={p.booking.id === selectedId}
           onSelect={onSelect}
+          resourceBg={resourceBg?.(p.booking) ?? null}
         />
       ))}
 
@@ -237,16 +250,20 @@ function EventBlock({
   narrow,
   selected,
   onSelect,
+  resourceBg,
 }: {
   placed: Placed;
   narrow: boolean;
   selected: boolean;
   onSelect: (b: Booking) => void;
+  resourceBg: string | null;
 }) {
   const { booking: b, startMin, endMin, col, cols } = placed;
   const top = (startMin / 60) * HOUR_PX;
   const height = Math.max(MIN_EVENT_PX, ((endMin - startMin) / 60) * HOUR_PX - 2);
   const title = bookingTitle(b);
+  // 200 — "Corte clásico · Luis": en la rejilla se lee qué y con quién.
+  const subtitle = bookingSubtitle(b);
   const start = hhmm(startMin);
   const end = hhmm(endMin);
   const range = `${placed.continuesBefore ? "…" : start} – ${placed.continuesAfter ? "…" : end}`;
@@ -262,14 +279,14 @@ function EventBlock({
         e.stopPropagation();
         onSelect(b);
       }}
-      aria-label={`${title}, ${start} a ${end}`}
+      aria-label={`${title}${subtitle ? ` (${subtitle})` : ""}, ${start} a ${end}`}
       className={cn(
         "absolute z-10 overflow-hidden rounded-[6px] border text-left leading-tight shadow-sm transition-[box-shadow,filter] hover:brightness-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft",
         cols > 1 ? "px-1" : "px-1.5",
         // En una línea, la hora que no cabe junto al nombre salta a una
         // segunda línea que queda oculta: se ve entera o no se ve.
         compact ? "flex flex-wrap content-start items-center gap-x-1 text-[11px]" : "py-1 text-[11.5px]",
-        bookingTone(b).box,
+        bookingTone(b, resourceBg).box,
         selected && "ring-2 ring-brand ring-offset-1 ring-offset-background"
       )}
       style={{
@@ -291,6 +308,11 @@ function EventBlock({
         <span className="truncate">
           {b.isTest && "Prueba · "}
           {title}
+          {/* 200 — En una línea y a todo lo ancho (vista Día), qué y con quién
+              caben junto al nombre. */}
+          {subtitle && compact && !narrow && cols === 1 && (
+            <span className="font-normal opacity-90"> · {subtitle}</span>
+          )}
         </span>
       </span>
       {showTime && (
@@ -303,7 +325,14 @@ function EventBlock({
           )}
         >
           {compact ? start : range}
+          {/* 200 — Con dos líneas, qué y con quién van tras la hora. */}
+          {!compact && subtitle && height < 50 && (
+            <span className="font-sans opacity-90"> · {subtitle}</span>
+          )}
         </span>
+      )}
+      {subtitle && !compact && height >= 50 && (
+        <span className="mt-0.5 block truncate text-[10.5px] opacity-90">{subtitle}</span>
       )}
     </button>
   );

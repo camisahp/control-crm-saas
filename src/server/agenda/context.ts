@@ -1,4 +1,4 @@
-import { eq, gte, or } from "drizzle-orm";
+import { eq, gte, or, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { scoped } from "@/lib/db/tenant";
 import { dayLabelInTz, timeInTz } from "@/lib/time/slots";
@@ -55,6 +55,9 @@ export type CitaEnContexto = {
   meetingLink: string | null;
   /** true ⇒ la cita existe pero el proveedor aún no entregó el enlace. */
   linkPending: boolean;
+  /** 200 — Qué y con quién, solo en la agenda por recurso. */
+  service?: string;
+  resource?: string;
 };
 
 export type EstadoCerrada = "cancelada" | "no_show" | "realizada";
@@ -76,6 +79,8 @@ export type CitaCerrada = {
    */
   cancelledBy: "equipo" | null;
   // Sin enlace a propósito: el de una cita cerrada ya no sirve.
+  service?: string;
+  resource?: string;
 };
 
 export type CitasEnContexto = {
@@ -97,6 +102,9 @@ export type FilaCita = {
   meetingLink: string | null;
   linkPending: boolean;
   updatedAt: Date;
+  /** 200 — Nombres del servicio y del recurso (agenda por recurso). */
+  serviceName?: string | null;
+  resourceName?: string | null;
 };
 
 function forma(fila: FilaCita, timezone: string, now: Date) {
@@ -111,12 +119,21 @@ function forma(fila: FilaCita, timezone: string, now: Date) {
   };
 }
 
+/** 200 — Qué y con quién, solo cuando la cita los tiene (la forma de siempre no cambia). */
+function queYQuien(fila: FilaCita): { service?: string; resource?: string } {
+  return {
+    ...(fila.serviceName ? { service: fila.serviceName } : {}),
+    ...(fila.resourceName ? { resource: fila.resourceName } : {}),
+  };
+}
+
 function vigente(fila: FilaCita, timezone: string, now: Date): CitaEnContexto {
   return {
     ...forma(fila, timezone, now),
     status: "agendada",
     meetingLink: fila.meetingLink,
     linkPending: fila.linkPending,
+    ...queYQuien(fila),
   };
 }
 
@@ -127,6 +144,38 @@ function cerrada(fila: FilaCita, timezone: string, now: Date): CitaCerrada {
     status,
     closedAt: fila.updatedAt.toISOString(),
     cancelledBy: status === "cancelada" ? "equipo" : null,
+    ...queYQuien(fila),
+  };
+}
+
+/** Una cita del contexto sin nada de enlace. */
+export type CitaPresencial = Omit<CitaEnContexto, "meetingLink" | "linkPending">;
+
+export type CitasPresenciales = Omit<CitasEnContexto, "next" | "unresolved"> & {
+  next: CitaPresencial | null;
+  unresolved: CitaPresencial | null;
+  /** La cita es en el local del negocio: no hay enlace que dar ni prometer. */
+  presencial: true;
+};
+
+/**
+ * PURA — 200: las citas de un negocio PRESENCIAL (`VERTICAL.cita.presencial`)
+ * sin enlace ni "enlace pendiente". El enlace existe (el conector es el
+ * calendario del equipo), pero es del equipo: un cerebro que lo ve se lo
+ * comparte al cliente, y el cliente de una barbería no tiene nada que hacer
+ * en una sala de Zoom.
+ */
+export function sinEnlaces(citas: CitasEnContexto): CitasPresenciales {
+  const quitar = (c: CitaEnContexto | null): CitaPresencial | null => {
+    if (!c) return null;
+    const { meetingLink: _link, linkPending: _pending, ...resto } = c;
+    return resto;
+  };
+  return {
+    ...citas,
+    next: quitar(citas.next),
+    unresolved: quitar(citas.unresolved),
+    presencial: true,
   };
 }
 
@@ -222,6 +271,10 @@ async function leerCitas(
         meetingLink: schema.booking.meetingLink,
         linkPending: schema.booking.linkPending,
         updatedAt: schema.booking.updatedAt,
+        // 200 — Subconsultas y no joins: el nombre viaja con la fila y la
+        // agenda sin recursos lee exactamente lo mismo que antes.
+        serviceName: sql<string | null>`(select ${schema.agendaService.name} from ${schema.agendaService} where ${schema.agendaService.id} = ${schema.booking.serviceId})`,
+        resourceName: sql<string | null>`(select ${schema.agendaResource.name} from ${schema.agendaResource} where ${schema.agendaResource.id} = ${schema.booking.resourceId})`,
       })
       .from(schema.booking)
       .where(

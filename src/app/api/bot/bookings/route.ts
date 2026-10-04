@@ -7,6 +7,7 @@ import {
   rescheduleForConversation,
 } from "@/server/agenda/service";
 import { bookingErrorResponse, bookingPayload } from "@/server/agenda/http";
+import { VERTICAL } from "@/lib/vertical";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,12 @@ export const dynamic = "force-dynamic";
  * Y el sobre del error va ANIDADO (`{"error":{"code":…}}`) con `slots` como
  * hermano: un mock con la forma plana escondió el camino de re-oferta durante
  * semanas en ese mismo sistema.
+ *
+ * 200 — El cuerpo sigue siendo `{conversationId, startUtc}`: con quién y qué
+ * salen de la OFERTA registrada (se reserva lo que se ofreció, con quien se
+ * ofreció). La respuesta suma `service`, `resource`, `resourceLabel` e
+ * `instructions` en la agenda por recurso; en un negocio PRESENCIAL no lleva
+ * `meetingLink` y `linkPending` es false (`VERTICAL.cita.presencial`).
  */
 
 const createSchema = z.object({
@@ -51,7 +58,10 @@ export async function POST(req: Request) {
       // La regla innegociable: el agente solo reserva lo que ya ofreció.
       requireOffer: true,
     });
-    return Response.json(bookingPayload(result), { status: 201 });
+    return Response.json(
+      bookingPayload(result, { presencial: VERTICAL.cita.presencial }),
+      { status: 201 }
+    );
   } catch (err) {
     return bookingErrorResponse(err);
   }
@@ -71,7 +81,7 @@ export async function PATCH(req: Request) {
       startUtc: body.data.startUtc,
     });
     // 200 y no 201: mover una cita no crea un recurso nuevo.
-    return Response.json(bookingPayload(result));
+    return Response.json(bookingPayload(result, { presencial: VERTICAL.cita.presencial }));
   } catch (err) {
     return bookingErrorResponse(err);
   }

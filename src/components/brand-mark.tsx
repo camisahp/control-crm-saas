@@ -1,11 +1,10 @@
 import type { Branding } from "@/lib/branding";
 import {
   BRAND_CYAN,
-  BRAND_CYAN_ON_TILE,
   BRAND_MARK_BODY,
   BRAND_MARK_STROKE,
   BRAND_MARK_TAIL,
-  isVoceroName,
+  isControlChatsName,
 } from "@/lib/brand";
 import { faviconHref, faviconInitial } from "@/lib/favicon";
 import { cn } from "@/lib/utils";
@@ -52,7 +51,7 @@ export function BrandMark({
  * Mosaico cuadrado con degradado del acento: es el favicon en grande. Con un
  * logo subido lleva el logo (el MISMO archivo y la MISMA URL versionada que
  * la pestaña, así lo que se sube en Ajustes → Marca se ve en los dos sitios);
- * sin él, la "v" de Vocero o la inicial del nombre white-label.
+ * sin él, el logo de Control Chats o la inicial del nombre white-label.
  */
 export function BrandTile({
   branding,
@@ -78,8 +77,9 @@ export function BrandTile({
           alt=""
           className="h-full w-full object-contain"
         />
-      ) : isVoceroName(branding.name) ? (
-        <BrandMark className="h-[64%] w-[64%]" cyan={BRAND_CYAN_ON_TILE} />
+      ) : isControlChatsName(branding.name) ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src="/control-crm-logo.png" alt="" className="h-full w-full object-contain" />
       ) : (
         <span className="font-bold leading-none">{faviconInitial(branding.name)}</span>
       )}
@@ -104,7 +104,7 @@ const TILE_SIZE = {
 
 /**
  * La marca completa, como en la cabecera de la landing: trazo + wordmark
- * "vocero" en minúsculas y bien apretado. Una instancia rebautizada ve en su
+ * de Control Chats. Una instancia rebautizada ve en su
  * lugar el mosaico con la inicial y su nombre (white-label). Con logo subido
  * gana el logo, se llame como se llame: quien sube un archivo quiere verlo.
  */
@@ -117,17 +117,22 @@ export function BrandLogo({
   size?: keyof typeof WORDMARK_SIZE;
   className?: string;
 }) {
-  if (isVoceroName(branding.name) && !branding.favicon) {
+  if (isControlChatsName(branding.name) && !branding.favicon) {
     return (
       <span className={cn("flex items-center gap-2 text-foreground", className)}>
-        <BrandMark className={cn("shrink-0 text-brand", MARK_SIZE[size])} />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/control-crm-logo.png"
+          alt="Control Chats"
+          className={cn("shrink-0 object-contain", MARK_SIZE[size])}
+        />
         <span
           className={cn(
             "font-[800] leading-none tracking-[-0.045em]",
             WORDMARK_SIZE[size]
           )}
         >
-          vocero
+          Control Chats
         </span>
       </span>
     );

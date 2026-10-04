@@ -12,6 +12,14 @@ import {
 import { getSettings } from "@/server/agenda/settings";
 import { armarHuecos, daysWithAgenda } from "@/server/agenda/spread";
 import { replaceOffers } from "@/server/agenda/offers";
+import { VERTICAL } from "@/lib/vertical";
+import { hasResources, loadCatalog } from "@/server/agenda/catalog";
+import {
+  computeResourceAvailability,
+  countDayCandidates,
+} from "@/server/agenda/resource-availability";
+import { resolverServicioYRecurso } from "@/server/agenda/catalog-query";
+import { alElegirServicio } from "@/server/agenda/etapas";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +41,19 @@ export const dynamic = "force-dynamic";
  * `query.status` dice por qué no hay ninguna. Sin esto, a «¿mañana en la
  * tarde?» el cerebro solo veía las tres primeras horas de mañana y contestaba
  * que solo había mañana (`src/server/agenda/spread.ts`, `armarHuecos`).
+ *
+ * 200 — Agenda por recurso. Con al menos un recurso activo (barbero, cabina),
+ * `service` (id o nombre) es OBLIGATORIO y `resource` (id o nombre) opcional:
+ * - falta `service` → 422 `service_required` con `services` (los nombres).
+ * - `service` desconocido → 422 `unknown_service` con `services`.
+ * - `resource` desconocido → 422 `unknown_resource` con `resources`.
+ * - `resource` que no da ese servicio → 422 `resource_not_offering_service`
+ *   con `resources` (los que sí lo dan).
+ * Cada hueco trae `resource`, `service` y `resourceLabel` ("con Luis" cuando
+ * el cliente elige; null cuando asigna el sistema), y la oferta registra con
+ * quién y qué — es lo que después reserva `POST /api/bot/bookings`. Sin
+ * recursos, todo es exactamente lo de siempre y `service`/`resource` se
+ * ignoran.
  */
 
 const LIMITS = {
@@ -98,6 +119,22 @@ export async function GET(req: Request) {
   const days = clamp(url.searchParams.get("days"), LIMITS.days);
 
   const settings = await getSettings(organizationId);
+  const catalog = await loadCatalog(organizationId);
+  if (hasResources(catalog)) {
+    return porRecurso({
+      organizationId,
+      conversationId,
+      date,
+      limit,
+      perDay,
+      days,
+      settings,
+      catalog,
+      serviceRef: url.searchParams.get("service"),
+      resourceRef: url.searchParams.get("resource"),
+    });
+  }
+
   const now = new Date();
   const hoy = todayInTz(now, settings.timezone);
   // Un día fuera de lo agendable ni se calcula: no hay nada que buscar.
@@ -149,6 +186,117 @@ export async function GET(req: Request) {
     // horas. Para un día concreto, se pregunta con `date`.
     diasConAgenda: daysWithAgenda(slots),
     query,
+  });
+}
+
+/**
+ * 200 — La misma consulta, en la agenda por recurso: la duración es la del
+ * servicio y cada hueco lleva con quién. El reparto, `date` y `query` son los
+ * de siempre (`armarHuecos`).
+ */
+async function porRecurso(input: {
+  organizationId: string;
+  conversationId: string;
+  date: string | null;
+  limit: number;
+  perDay: number;
+  days: number;
+  settings: Awaited<ReturnType<typeof getSettings>>;
+  catalog: Awaited<ReturnType<typeof loadCatalog>>;
+  serviceRef: string | null;
+  resourceRef: string | null;
+}): Promise<Response> {
+  const { settings, date, organizationId, conversationId } = input;
+  const resolved = resolverServicioYRecurso(input.catalog, input.serviceRef, input.resourceRef);
+  if (!resolved.ok) return Response.json(resolved.body, { status: 422 });
+  const { service, resources, resource } = resolved;
+
+  const now = new Date();
+  const hoy = todayInTz(now, settings.timezone);
+  const dentro =
+    !date || (date >= hoy && date <= addDaysISO(hoy, settings.maxDaysAhead));
+  const todos = dentro
+    ? await computeResourceAvailability(organizationId, {
+        service,
+        resources,
+        settings,
+        now,
+        seleccion: VERTICAL.seleccion,
+        ...(date ? { fromISO: date, toISO: date } : {}),
+      })
+    : [];
+  const { slots, query } = armarHuecos({
+    todos,
+    timezone: settings.timezone,
+    now,
+    maxDaysAhead: settings.maxDaysAhead,
+    limit: input.limit,
+    perDay: input.perDay,
+    days: input.days,
+    date,
+    candidatosDelDia:
+      date && dentro
+        ? countDayCandidates({
+            settings,
+            resources,
+            durationMinutes: service.durationMinutes,
+            dateISO: date,
+          })
+        : 0,
+  });
+
+  if (!date || slots.length > 0) {
+    await replaceOffers(
+      organizationId,
+      conversationId,
+      slots.map((s) => ({
+        startUtc: s.startUtc,
+        label: s.label,
+        resourceId: s.resourceId,
+        serviceId: s.serviceId,
+      }))
+    );
+  }
+
+  // Preguntar horarios de un servicio ya es elegirlo (en el spa, "Paquete
+  // elegido"). Best-effort y solo hacia adelante.
+  if (VERTICAL.etapas.servicioElegido) {
+    const conv = await getDb()
+      .select({ contactId: schema.conversation.contactId })
+      .from(schema.conversation)
+      .where(
+        scoped(
+          schema.conversation.organizationId,
+          organizationId,
+          eq(schema.conversation.id, conversationId)
+        )
+      )
+      .limit(1);
+    if (conv[0]) await alElegirServicio(organizationId, conv[0].contactId);
+  }
+
+  return Response.json({
+    slots: slots.map((s) => ({
+      startUtc: s.startUtc,
+      endUtc: s.endUtc,
+      label: s.label,
+      dayIso: s.dayIso,
+      dayLabel: s.dayLabel,
+      time: s.time,
+      resource: s.resourceName,
+      resourceLabel: s.resourceLabel,
+      service: s.serviceName,
+    })),
+    diasConAgenda: daysWithAgenda(slots),
+    query,
+    service: {
+      name: service.name,
+      durationMinutes: service.durationMinutes,
+      instructions: service.instructions,
+    },
+    // El recurso que se pidió (null = cualquiera) y cómo elige este negocio.
+    resource: resource ? resource.name : null,
+    seleccion: VERTICAL.seleccion,
   });
 }
 

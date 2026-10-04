@@ -5,6 +5,7 @@ import { blockStartUtc } from "@/lib/time/calendar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { ResourceLook } from "./booking-look";
 
 /**
  * 215 — Bloquear un horario: para compromisos que viven fuera del CRM. Ese
@@ -25,12 +26,19 @@ export function BlockDialog({
   initialDay,
   initialTime,
   timezone,
+  resources = [],
+  resourceLabel = "Recurso",
+  initialResourceId = null,
   onCancel,
   onCreated,
 }: {
   initialDay: string;
   initialTime: string;
   timezone: string;
+  /** 200 — Bloquear solo a un recurso (la comida de Luis); vacío = a todos. */
+  resources?: ResourceLook[];
+  resourceLabel?: string;
+  initialResourceId?: string | null;
   onCancel: () => void;
   onCreated: (day: string) => void;
 }) {
@@ -38,6 +46,7 @@ export function BlockDialog({
   const [time, setTime] = useState(initialTime);
   const [minutes, setMinutes] = useState(60);
   const [notes, setNotes] = useState("");
+  const [resourceId, setResourceId] = useState<string>(initialResourceId ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,6 +77,7 @@ export function BlockDialog({
         startUtc,
         durationMinutes: minutes,
         notes: notes.trim() || null,
+        ...(resourceId ? { resourceId } : {}),
       }),
     }).catch(() => null);
     setBusy(false);
@@ -134,6 +144,25 @@ export function BlockDialog({
             ))}
           </select>
         </div>
+
+        {resources.length > 0 && (
+          <div className="space-y-1.5">
+            <Label htmlFor="bloqueo-recurso">{resourceLabel}</Label>
+            <select
+              id="bloqueo-recurso"
+              value={resourceId}
+              onChange={(e) => setResourceId(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-soft"
+            >
+              <option value="">Todo el negocio</option>
+              {resources.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <Label htmlFor="bloqueo-nota">Motivo (opcional)</Label>
