@@ -16,6 +16,11 @@
 @layer base {
   :root {
     color-scheme: light;
+    /* Fuentes locales: la imagen de producción compila sin descargar recursos
+       externos. Evita que una caída/bloqueo de Google Fonts detenga el deploy. */
+    --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-serif: Georgia, serif;
+    --font-mono: ui-monospace, "Cascadia Code", monospace;
 
     /* Neutros: papel frío de la landing */
     --bg: #fffdf9;
