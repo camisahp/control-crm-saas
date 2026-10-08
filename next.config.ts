@@ -11,6 +11,14 @@ const nextConfig: NextConfig = {
   // standalone es para la imagen Docker (Linux). En Windows el trazado crea
   // symlinks que requieren permisos elevados, así que ahí se omite.
   output: process.platform === "win32" ? undefined : "standalone",
+  // El VPS compila también otros servicios. Estas opciones reducen el pico de
+  // memoria de Webpack y evitan generar source maps de producción que no se
+  // usan en runtime ni en App Review.
+  productionBrowserSourceMaps: false,
+  experimental: {
+    webpackMemoryOptimizations: true,
+    serverSourceMaps: false,
+  },
   // El paquete `postgres` usa APIs de Node que no deben empaquetarse en el bundle.
   serverExternalPackages: ["postgres"],
   // Se congelan al construir: lo que queda aquí va dentro del binario y no
