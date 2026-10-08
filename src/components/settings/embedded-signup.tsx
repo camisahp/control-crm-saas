@@ -20,6 +20,7 @@ export function EmbeddedSignup() {
   const [sdkReady, setSdkReady] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const selectionRef = useRef<{ wabaId: string; phoneNumberId: string } | null>(null);
+  const pendingCodeRef = useRef<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [reviewConnecting, setReviewConnecting] = useState(false);
 
@@ -61,12 +62,15 @@ export function EmbeddedSignup() {
       const selected = { wabaId, phoneNumberId };
       selectionRef.current = selected;
       setMessage("Meta devolvió la cuenta y el número. Terminando la conexión segura…");
+      const code = pendingCodeRef.current;
+      if (code) void complete(code, selected);
     }
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
   }, []);
 
   async function complete(code: string, picked: { wabaId: string; phoneNumberId: string }) {
+    pendingCodeRef.current = null;
     setConnecting(true);
     const response = await fetch("/api/settings/whatsapp/embedded", {
       method: "POST",
@@ -94,9 +98,10 @@ export function EmbeddedSignup() {
         setMessage("El popup se cerró o Meta no autorizó el intento.");
         return;
       }
+      pendingCodeRef.current = code;
       const picked = selectionRef.current;
       if (!picked) {
-        setMessage("Meta autorizó, pero no devolvió la cuenta y el número. Completa el paso del número en el popup e inténtalo otra vez.");
+        setMessage("Meta autorizó. Esperando que Meta devuelva la cuenta y el número seleccionado…");
         return;
       }
       void complete(code, picked);
