@@ -281,3 +281,17 @@ Antes de ejecutar el despliegue hay que verificar y decidir:
   legales completas y grabar/validar el flujo vivo. El aislamiento cloud
   host-aware y callbacks completos de desautorización/eliminación continúan
   como trabajo SaaS pendiente; no representarlos como terminados.
+
+## Operación VPS — 2026-10-08
+
+- Hostinger aplicó limitación de CPU. La causa identificada fue el servicio
+  `Hermes-Agent`: su proceso de dashboard consumía 100% de CPU de forma
+  sostenida. RAM (~3.7 GB de 6 GB) y disco estaban dentro de rango.
+- Con autorización del usuario se reinició Hermes; el servicio terminó en
+  estado `exited` y el usuario confirmó que debe permanecer desactivado. No
+  reiniciarlo automáticamente. Esto no desconecta WABAs, números ni tokens de
+  WhatsApp; sí deja las funciones propias de Hermes indisponibles.
+- Aunque Hostinger confirmó que retiró la limitación y Hermes quedó apagado,
+  los despliegues remotos continuaron detenidos durante `next build`.
+  Localmente la compilación llegó a completar Webpack correctamente; el
+  siguiente intento limita el heap de Node a 1.5 GB sólo en la etapa builder.

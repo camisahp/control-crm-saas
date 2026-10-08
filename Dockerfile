@@ -15,6 +15,11 @@ RUN corepack enable
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# El VPS de producción dispone de 6 GB compartidos. Limitar únicamente el
+# proceso de compilación evita que V8 intente reservar memoria adicional y
+# deje el despliegue sin recursos; el contenedor que atiende la aplicación no
+# hereda este límite.
+ENV NODE_OPTIONS=--max-old-space-size=1536
 # Commit del que sale la imagen, para que la app pueda decir qué está corriendo.
 # Tiene que llegar como build arg en CADA despliegue; con docker compose,
 # `--build-arg SOURCE_COMMIT=$(git rev-parse HEAD)`. Si falta nunca es un error
