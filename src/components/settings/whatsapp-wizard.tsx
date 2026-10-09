@@ -79,19 +79,21 @@ export function WhatsappWizard() {
               Número conectado: {connection.displayPhoneNumber ?? connection.phoneNumberId}
             </p>
             <p className="text-success-text opacity-80">
-              {connection.verifiedName ? `${connection.verifiedName} · ` : ""}
-              token …{connection.tokenLast4}
+              {connection.verifiedName ?? "WhatsApp Cloud API"}
             </p>
           </div>
           <Badge variant="success">Conectado</Badge>
         </div>
       )}
 
-      <ConnectForm existing={connection} onSaved={() => void refetch()} />
-
       <EmbeddedSignup />
-
-      {webhook && <WebhookCard webhook={webhook} />}
+      <details className="rounded-lg border p-4">
+        <summary className="cursor-pointer text-sm font-medium">Configuración avanzada: conexión manual y webhook</summary>
+        <div className="mt-4 space-y-6">
+          <ConnectForm existing={connection} onSaved={() => void refetch()} />
+          {webhook && <WebhookCard webhook={webhook} />}
+        </div>
+      </details>
     </div>
   );
 }

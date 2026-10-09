@@ -115,7 +115,7 @@ export function EmbeddedSignup() {
   }
 
   return <Card>
-    <CardHeader><CardTitle>Conectar con Meta</CardTitle><CardDescription>Abre el registro insertado de WhatsApp de Meta. El navegador no recibe ni guarda tokens.</CardDescription></CardHeader>
+    <CardHeader><CardTitle>Conectar con Meta</CardTitle><CardDescription>Abre el registro insertado de WhatsApp de Meta. El token de acceso obtenido se almacena cifrado en el servidor.</CardDescription></CardHeader>
     <CardContent className="space-y-3">
       {!config ? <p className="text-sm text-muted-foreground">Cargando configuración…</p> : !config.configured ? <p className="text-sm text-destructive">Faltan los identificadores de Meta en la configuración del servidor.</p> : <div className="flex flex-wrap gap-2"><Button disabled={!sdkReady || connecting} onClick={openPopup}>{connecting ? "Conectando…" : sdkReady ? "Conectar con Meta" : "Preparando Meta…"}</Button>{config.reviewConfigured && <Button variant="outline" disabled={reviewConnecting} onClick={() => void connectReview()}>{reviewConnecting ? "Conectando prueba…" : "Conectar número de prueba"}</Button>}</div>}
       {config?.reviewConfigured && config.reviewOrganizationMatches === false && config.organizationSlug && <p className="text-sm text-destructive">Este espacio ({config.organizationSlug}) no está habilitado como espacio de revisión. Configura REVIEW_TENANT_SLUG en el servidor con ese nombre antes de conectar el número de prueba.</p>}

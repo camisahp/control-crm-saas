@@ -14,6 +14,7 @@ import type { ConversationDto, TemplateDto } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { formatBytes, formatRemaining } from "./helpers";
 import { TemplateSender } from "./template-sender";
+import { Button } from "@/components/ui/button";
 
 /** 008 — Panel secundario del clip: formulario de ubicación o contacto. */
 type AttachPanel = "location" | "contact" | null;
@@ -44,6 +45,7 @@ export function Composer({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [templates, setTemplates] = useState<TemplateDto[]>([]);
+  const [showTemplateSender, setShowTemplateSender] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [panel, setPanel] = useState<AttachPanel>(null);
@@ -220,8 +222,18 @@ export function Composer({
 
   return (
     <div className="border-t bg-background px-[18px] pb-3.5 pt-3">
+      {!file && panel === null && (
+        <div className="mb-2.5 space-y-2">
+          <Button type="button" variant="outline" size="sm" aria-expanded={showTemplateSender} onClick={() => setShowTemplateSender((open) => !open)}>
+            {showTemplateSender ? "Ocultar envío de plantilla" : "Enviar plantilla aprobada"}
+          </Button>
+          {showTemplateSender && <TemplateSender conversationId={conversation.id} onSent={onSent} />}
+        </div>
+      )}
       {templates.length > 0 && !file && panel === null && (
-        <div className="mb-2.5 flex flex-wrap gap-1.5">
+        <div className="mb-2.5 space-y-2">
+          <p className="text-xs text-muted-foreground">Respuestas rápidas (texto libre)</p>
+          <div className="flex flex-wrap gap-1.5">
           {templates.slice(0, 4).map((t) => (
             <button
               key={t.id}
@@ -237,6 +249,7 @@ export function Composer({
               {t.name.replace(/_/g, " ")}
             </button>
           ))}
+          </div>
         </div>
       )}
 

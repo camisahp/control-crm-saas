@@ -368,3 +368,33 @@ Antes de ejecutar el despliegue hay que verificar y decidir:
   /api/health sí responde ok tras el rollout, pero esa configuración interna
   necesita revisión para no producir falsos positivos. Hubo 502 transitorios
   al retirar contenedores; no se midió aún disponibilidad continua o capacidad.
+- Importación desplegada en `a727164`, deploy `qenjpucims7vz0qqeposf1ia`
+  finished a las 02:49:05 UTC. Sincronización viva importó hello_world y otra
+  plantilla; la UI muestra aprobadas. OAuth/callback de Meta del popup aún
+  no completados (sólo apertura reportada por el propietario).
+- Diagnóstico desde el terminal del contenedor (salida limitada, sin secretos):
+  WABA suscrita a la app correcta; sin override; GET de app subscriptions vacío;
+  handshake público HTTP 200 y challenge correcto. Tras autorización explícita,
+  se creó suscripción activa whatsapp_business_account para messages,
+  message_template_status_update y account_update, host alta.controlchats.com.
+  Meta devolvió HTTP 200/success true y GET confirmó los campos.
+- Verificación pública de seguridad: token de verificación incorrecto → 403;
+  POST sin firma → 401; payload vacío con firma válida → 200. No creó mensajes.
+- El propietario confirmó publicación de la app. Llegó el mensaje real de su
+  teléfono permitido; respuesta manual autorizada enviada desde el CRM muestra
+  estado read recibido por webhook. La plantilla controlchats_revision_20261008
+  fue creada con aprobación del propietario; UI Pendiente de Meta, es/UTILITY.
+- UI abierta de 24 h sólo ofrecía textos rápidos, no envío real de plantilla.
+  Se añade acceso al TemplateSender también allí. Se oculta por defecto la
+  configuración manual/webhook y se retira el fragmento de token del banner
+  para permitir grabar sin divulgar credenciales.
+- Coolify rechazó comandos de healthcheck custom; al recargar conserva HTTP
+  request y tiempos originales (no se persistió ese cambio). Se añade curl al
+  runner para corregir la dependencia que falta, conservando wget de la imagen.
+  Node y wget fueron probados en vivo con exit 0 contra el endpoint interno.
+- OpenRouter no está operativo en esta instancia: UI muestra ausencia de
+  OPENROUTER_API_TOKEN. Las pruebas actuales usan respuesta manual y no afirman
+  que IA o capacidad para 100 tenants estén verificadas.
+- Verificación local del selector real de plantillas y pantalla segura para
+  grabar: suite Vitest completa finalizó con exit 0; build Next completo,
+  incluidos lint y tipos, exit 0. Publicación de estos últimos ajustes pendiente.
