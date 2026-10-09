@@ -348,3 +348,23 @@ Antes de ejecutar el despliegue hay que verificar y decidir:
   pasaron; Vitest: 77 archivos y 796 pruebas aprobadas, incluidas 15 pruebas
   nuevas del parser y del backend. La publicación remota de estos ajustes
   y las pruebas vivas del flujo siguen pendientes.
+- Ajustes publicados como `7893cab`: despliegue `ptvltffiecscyp2al8xgmb6g`
+  finished a las 02:31:00 UTC. La UI confirmó organización `principal`.
+  Se cambió exclusivamente `REVIEW_TENANT_SLUG` de `meta-review` a `principal`
+  en Coolify; deploy `pb4rgahyr8qsaz1flnuwai2v` finished 02:39:10 UTC.
+- Con aprobación explícita del usuario, `Conectar número de prueba` completó
+  validación real contra Meta y guardó la conexión; la UI muestra `Conectado`.
+  Esto no demuestra todavía recepción por webhook ni entrega de mensajes.
+  El usuario confirmó que en su navegador con Facebook abre el diálogo Meta
+  y muestra Continuar; no se han aprobado permisos ni completado el signup.
+- Se detectó que syncTemplates sólo actualizaba filas locales y no importaba
+  hello_world. Se prepara importación tenant-scoped, idempotente y paginada
+  de plantillas soportadas por el sender actual (BODY posicional; encabezado
+  y pie estáticos). Se excluyen formatos multimedia, botones y parámetros
+  nombrados. Build completo, tipos, lint y 813 pruebas locales aprobados.
+- Privacidad pública reevaluada: HTTP 200, responsable y Colombia presentes;
+  retención aún vaga y sin plazos concretos. No afirmar cumplimiento total.
+- Los healthchecks de Coolify registran curl inexistente con exit 0. HTTPS
+  /api/health sí responde ok tras el rollout, pero esa configuración interna
+  necesita revisión para no producir falsos positivos. Hubo 502 transitorios
+  al retirar contenedores; no se midió aún disponibilidad continua o capacidad.

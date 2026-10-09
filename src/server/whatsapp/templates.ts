@@ -8,6 +8,7 @@ import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { graphRequest, MetaApiError, normalizeRecipient } from "@/lib/meta/client";
 import { destinatarioMeta } from "@/lib/meta/destinatario";
+import { importableTemplateBody, type RemoteTemplate } from "@/lib/meta/remote-template";
 import { scoped } from "@/lib/db/tenant";
 import { publish } from "@/server/events/bus";
 import {
@@ -126,7 +127,7 @@ export async function createTemplate(
       if (err.status === 0 || err.status >= 500) {
         throw new TemplateError("meta_unavailable", "Meta no está disponible ahora");
       }
-      throw new TemplateError("meta_error", err.message);
+      throw new TemplateError("meta_error", `Meta rechazó la plantilla (código ${err.code ?? "desconocido"}). Revisa nombre, categoría, idioma y contenido.`);
     }
     throw err;
   }
@@ -186,13 +187,23 @@ export async function syncTemplates(organizationId: string): Promise<number> {
     throw new TemplateError("not_connected", "Conecta tu número de WhatsApp primero");
   }
 
-  let data: {
-    data?: { id?: string; name?: string; language?: string; status?: string; category?: string; quality_score?: unknown; rejected_reason?: string }[];
-  };
+  const remoteTemplates: RemoteTemplate[] = [];
   try {
-    data = await graphRequest(`${creds.wabaId}/message_templates`, {
-      token: creds.token,
-    });
+    const seenCursors = new Set<string>();
+    let cursor: string | undefined;
+    // Follow cursors, never provider next URLs (which may contain credentials).
+    for (let page = 0; page < 20; page += 1) {
+      const params = new URLSearchParams({ fields: "id,name,language,status,category,components,parameter_format,rejected_reason", limit: "100" });
+      if (cursor) params.set("after", cursor);
+      const data = await graphRequest<{ data?: RemoteTemplate[]; paging?: { next?: string; cursors?: { after?: string } } }>(
+        `${creds.wabaId}/message_templates?${params}`, { token: creds.token }
+      );
+      remoteTemplates.push(...(data.data ?? []));
+      const nextCursor = data.paging?.cursors?.after;
+      if (!data.paging?.next || !nextCursor || seenCursors.has(nextCursor)) break;
+      seenCursors.add(nextCursor);
+      cursor = nextCursor;
+    }
   } catch (err) {
     if (err instanceof MetaApiError) {
       if (err.isAuthError) {
@@ -211,7 +222,7 @@ export async function syncTemplates(organizationId: string): Promise<number> {
     .where(scoped(schema.template.organizationId, organizationId));
 
   let updated = 0;
-  for (const remote of data.data ?? []) {
+  for (const remote of remoteTemplates) {
     const status = mapMetaStatus(remote.status);
     if (!status) continue;
     const match = local.find(
@@ -219,7 +230,18 @@ export async function syncTemplates(organizationId: string): Promise<number> {
         (remote.id && t.waTemplateId === remote.id) ||
         (t.name === remote.name && t.language === remote.language)
     );
-    if (!match) continue;
+    if (!match) {
+      const body = importableTemplateBody(remote);
+      if (body === null) continue;
+      const inserted = await db.insert(schema.template).values({
+        id: newId("template"), organizationId, name: remote.name!,
+        language: remote.language!, category: remote.category!, body, status,
+        waTemplateId: remote.id!, rejectionReason: remote.rejected_reason ?? null,
+      }).onConflictDoNothing({ target: [schema.template.organizationId, schema.template.name, schema.template.language] }).returning();
+      local.push(...inserted);
+      updated += inserted.length;
+      continue;
+    }
     // Meta reclasifica la categoría al aprobar (una UTILITY puede volverse
     // MARKETING, lo que cambia el costo por conversación): es autoridad.
     const category = remote.category ?? match.category;
@@ -233,7 +255,7 @@ export async function syncTemplates(organizationId: string): Promise<number> {
         waTemplateId: match.waTemplateId ?? remote.id ?? null,
         updatedAt: new Date(),
       })
-      .where(eq(schema.template.id, match.id));
+      .where(scoped(schema.template.organizationId, organizationId, eq(schema.template.id, match.id)));
     updated += 1;
   }
   return updated;
