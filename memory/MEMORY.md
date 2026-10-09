@@ -295,3 +295,56 @@ Antes de ejecutar el despliegue hay que verificar y decidir:
   los despliegues remotos continuaron detenidos durante `next build`.
   Localmente la compilación llegó a completar Webpack correctamente; el
   siguiente intento limita el heap de Node a 1.5 GB sólo en la etapa builder.
+- El intento `cxdv3ordlwij6p0ddxb2jk6x` del commit `28488a8` fue cancelado
+  después de unos seis minutos. Sin logs ni métricas no se puede concluir que
+  estaba congelado ni que faltaba RAM; el estado `in_progress` no prueba esas
+  causas. La compilación local tampoco quedó verificada de principio a fin.
+- Reevaluación de acceso: la app continúa `running:healthy`; el conector
+  devuelve `Missing required permissions: read:sensitive` al pedir un resumen
+  del despliegue. El MCP disponible no incluye ejecución de comandos ni
+  terminal del servidor. El diagnóstico exhaustivo necesita primero logs y,
+  si éstos no explican el problema, terminal/SSH autenticada por el propietario.
+- Verificación posterior del código local: `node node_modules/next/dist/bin/next
+  build` completó compilación, tipos, generación de páginas y build traces,
+  devolviendo `NEXT_BUILD_EXIT=0`. Entorno local Windows con Node 24.15.0;
+  esto no sustituye validar la imagen standalone Linux/Node 22 de producción.
+- Tras el aviso de reemplazo del token, el MCP todavía deniega
+  `read:sensitive`. La configuración global usa
+  `bearer_token_env_var="COOLIFY_MCP_TOKEN"`. Se comprobó sólo presencia:
+  disponible en el proceso, ausente en User/Machine de Windows. No se leyeron
+  ni registraron valores de credenciales. Hace falta actualizar el valor en
+  el entorno que inicia Codex y reabrir la aplicación para verificar el acceso.
+
+## Corrección del diagnóstico y despliegue confirmado — 2026-10-08
+
+- Una comprobación fuera del sandbox confirmó que Windows User sí contiene el
+  token nuevo, pero no coincide con el que heredó el proceso de Codex. El MCP
+  nativo sigue usando la credencial anterior. La API REST está deshabilitada
+  (`You are not allowed to access the API`). Una conexión MCP nueva usando la
+  variable User permite consultar logs; el valor nunca se imprime ni almacena.
+- Los logs del intento cancelado `cxdv3ordlwij6p0ddxb2jk6x` muestran que la
+  imagen ya había terminado y el contenedor esperaba el periodo de salud de
+  180 segundos. Fue incorrecto concluir que la compilación seguía congelada.
+- El despliegue `5e8rvhrgjs7j0hnfp67bjeqs` terminó `finished` a las
+  2026-10-09 02:11:37 UTC (2026-10-08, Bogotá), con commit `28488a8`.
+  Imagen construida, primer healthcheck healthy, contenedores viejos retirados.
+  HTTPS `/api/health` devolvió `ok:true`, commit `28488a8`, versión 1.4.0.
+  `commitVerified:false`: el commit es runtime, no está horneado en el build.
+- El propietario inició sesión en el navegador integrado. WhatsApp muestra
+  los botones de Meta y de número de prueba. Un ChunkLoadError de la página
+  anterior desapareció al recargar tras el despliegue.
+- Prueba real de `review-connect`: rechazada antes de contactar a Meta porque
+  la organización actual no coincide con `REVIEW_TENANT_SLUG`. Se añade al
+  endpoint de configuración un diagnóstico owner-only del slug actual para
+  corregir ese valor sin quitar la protección ni afectar clientes.
+- El popup todavía no está verificado: el clic en el navegador integrado no
+  produjo una pestaña de Meta observable ni un error del SDK. Necesita una
+  comprobación en un navegador que permita ese popup, con el perfil admin.
+- Ajustes de seguridad preparados: canje OAuth con versión explícita, timeout
+  y error público sin detalles del proveedor; parser de eventos de Embedded
+  Signup con orígenes exactos y reinicio de selección entre intentos. El
+  diagnóstico del espacio de revisión se expone sólo al propietario.
+- Verificación local de estos ajustes: ESLint, TypeScript y build Next completo
+  pasaron; Vitest: 77 archivos y 796 pruebas aprobadas, incluidas 15 pruebas
+  nuevas del parser y del backend. La publicación remota de estos ajustes
+  y las pruebas vivas del flujo siguen pendientes.

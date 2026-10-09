@@ -32,14 +32,14 @@ function configuredApp() {
 
 async function exchangeCodeForToken(code: string): Promise<string> {
   const env = configuredApp();
-  const url = new URL("oauth/access_token", `${env.META_GRAPH_BASE_URL}/`);
+  const url = new URL(`${env.META_GRAPH_API_VERSION}/oauth/access_token`, `${env.META_GRAPH_BASE_URL}/`);
   url.searchParams.set("client_id", env.appId);
   url.searchParams.set("client_secret", env.appSecret);
   url.searchParams.set("code", code);
 
   let response: Response;
   try {
-    response = await fetch(url, { cache: "no-store" });
+    response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(15_000) });
   } catch {
     throw new EmbeddedSignupError(
       "meta_unavailable",
@@ -53,7 +53,7 @@ async function exchangeCodeForToken(code: string): Promise<string> {
   if (!response.ok || !payload?.access_token) {
     throw new EmbeddedSignupError(
       "meta_error",
-      payload?.error?.message ?? "Meta no pudo autorizar la conexión"
+      "Meta no pudo completar la autorización. Revisa la configuración de la app y vuelve a conectar."
     );
   }
   return payload.access_token;

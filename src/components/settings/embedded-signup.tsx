@@ -3,17 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { parseEmbeddedSignupEvent } from "@/lib/meta/embedded-signup-event";
 
 declare global {
   interface Window { FB?: { init(opts: object): void; login(cb: (r: unknown) => void, opts: object): void } }
 }
 
-type Config = { configured: boolean; appId?: string; configId?: string; graphVersion?: string; reviewConfigured?: boolean };
-type MetaSignupEvent = {
-  type?: string;
-  event?: string;
-  data?: { waba_id?: string; phone_number_id?: string };
-};
+type Config = { configured: boolean; appId?: string; configId?: string; graphVersion?: string; reviewConfigured?: boolean; organizationSlug?: string; reviewOrganizationMatches?: boolean };
 
 export function EmbeddedSignup() {
   const [config, setConfig] = useState<Config | null>(null);
@@ -51,15 +47,8 @@ export function EmbeddedSignup() {
 
   useEffect(() => {
     function receive(event: MessageEvent<unknown>) {
-      if (event.origin !== "https://www.facebook.com" && event.origin !== "https://web.facebook.com") return;
-      const payload = typeof event.data === "string"
-        ? (() => { try { return JSON.parse(event.data) as MetaSignupEvent; } catch { return null; } })()
-        : event.data as MetaSignupEvent | null;
-      if (payload?.type !== "WA_EMBEDDED_SIGNUP" || payload.event !== "FINISH") return;
-      const wabaId = payload.data?.waba_id;
-      const phoneNumberId = payload.data?.phone_number_id;
-      if (!wabaId || !phoneNumberId) return;
-      const selected = { wabaId, phoneNumberId };
+      const selected = parseEmbeddedSignupEvent(event.origin, event.data);
+      if (!selected) return;
       selectionRef.current = selected;
       setMessage("Meta devolvió la cuenta y el número. Terminando la conexión segura…");
       const code = pendingCodeRef.current;
@@ -91,6 +80,8 @@ export function EmbeddedSignup() {
   function openPopup() {
     // Debe ser directo en el click: un await aquí hace que el navegador bloquee el popup.
     if (!window.FB || !config?.configId) return;
+    selectionRef.current = null;
+    pendingCodeRef.current = null;
     setMessage(null);
     window.FB.login((response: unknown) => {
       const code = (response as { authResponse?: { code?: string } })?.authResponse?.code;
@@ -127,6 +118,7 @@ export function EmbeddedSignup() {
     <CardHeader><CardTitle>Conectar con Meta</CardTitle><CardDescription>Abre el registro insertado de WhatsApp de Meta. El navegador no recibe ni guarda tokens.</CardDescription></CardHeader>
     <CardContent className="space-y-3">
       {!config ? <p className="text-sm text-muted-foreground">Cargando configuración…</p> : !config.configured ? <p className="text-sm text-destructive">Faltan los identificadores de Meta en la configuración del servidor.</p> : <div className="flex flex-wrap gap-2"><Button disabled={!sdkReady || connecting} onClick={openPopup}>{connecting ? "Conectando…" : sdkReady ? "Conectar con Meta" : "Preparando Meta…"}</Button>{config.reviewConfigured && <Button variant="outline" disabled={reviewConnecting} onClick={() => void connectReview()}>{reviewConnecting ? "Conectando prueba…" : "Conectar número de prueba"}</Button>}</div>}
+      {config?.reviewConfigured && config.reviewOrganizationMatches === false && config.organizationSlug && <p className="text-sm text-destructive">Este espacio ({config.organizationSlug}) no está habilitado como espacio de revisión. Configura REVIEW_TENANT_SLUG en el servidor con ese nombre antes de conectar el número de prueba.</p>}
       {message && <p className="text-sm text-muted-foreground">{message}</p>}
     </CardContent>
   </Card>;
