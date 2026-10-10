@@ -2,7 +2,8 @@
 
 Fecha: 2026-10-10. Carril: ciclo completo (migración y callback público).
 Autorizado: implementar, probar y desplegar sólo control-crm-saas/main.
-Estado: implementado y verificado localmente; rollout y pruebas públicas pendientes.
+Estado: desplegado; pruebas locales y humo HTTPS inválido correctos. POST válido
+en producción, identidad SDK real y cancelación auténtica de Meta pendientes.
 
 Cuando Meta informa que un autorizante retira la app, el SaaS debe retirar
 únicamente sus credenciales verificadas, sin borrar conversaciones ni activos

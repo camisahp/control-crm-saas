@@ -8,6 +8,7 @@
 - [x] SDK/backend sin permisos extra y errores seguros (SDK real pendiente).
 - [x] POST público y pruebas HTTP/A-B/reconexión en PostgreSQL aislado.
 - [x] Tipos, lint, suite, build y revisión de diff.
-- [ ] Commit/push sólo archivos propios y deploy del destino autorizado.
-- [ ] Prueba HTTPS en producción y evidencia; actualizar memoria/campos.
+- [x] Commit/push sólo archivos propios y deploy del destino autorizado.
+- [x] Humo HTTPS inválido en producción y evidencia; actualizar memoria/campos.
+- [ ] POST válido en producción con identidad sintética desde el servidor (acceso disponible insuficiente).
 - [ ] Recepción auténtica de cancelación de Meta y prueba de identidad del SDK (no declarar verificadas).
