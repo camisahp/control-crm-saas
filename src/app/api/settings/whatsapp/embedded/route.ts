@@ -8,6 +8,7 @@ const bodySchema = z.object({
   wabaId: z.string().regex(/^\d+$/),
   phoneNumberId: z.string().regex(/^\d+$/),
   code: z.string().trim().min(8).max(4096),
+  signedRequest: z.string().min(1).max(16_384).optional(),
 });
 
 export const POST = withAuth(async (session, req: Request) => {

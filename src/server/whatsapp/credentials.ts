@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
@@ -79,10 +79,11 @@ export async function saveCredentials(input: {
   token: string;
   displayPhoneNumber?: string | null;
   verifiedName?: string | null;
+  authorization?: { appId: string; userId: string; issuedAt: number };
 }): Promise<void> {
   const db = getDb();
   const enc = encryptSecret(input.token);
-  await db
+  const write = async (writer: Pick<typeof db, "insert">) => writer
     .insert(schema.metaCredentials)
     .values({
       id: newId("credentials"),
@@ -91,6 +92,9 @@ export async function saveCredentials(input: {
       phoneNumberId: input.phoneNumberId,
       displayPhoneNumber: input.displayPhoneNumber ?? null,
       verifiedName: input.verifiedName ?? null,
+      authorizationAppId: input.authorization?.appId ?? null,
+      authorizationUserId: input.authorization?.userId ?? null,
+      authorizationIssuedAt: input.authorization?.issuedAt ?? null,
       tokenCipher: enc.cipher,
       tokenIv: enc.iv,
       tokenTag: enc.tag,
@@ -103,6 +107,9 @@ export async function saveCredentials(input: {
         phoneNumberId: input.phoneNumberId,
         displayPhoneNumber: input.displayPhoneNumber ?? null,
         verifiedName: input.verifiedName ?? null,
+        authorizationAppId: input.authorization?.appId ?? null,
+        authorizationUserId: input.authorization?.userId ?? null,
+        authorizationIssuedAt: input.authorization?.issuedAt ?? null,
         tokenCipher: enc.cipher,
         tokenIv: enc.iv,
         tokenTag: enc.tag,
@@ -110,6 +117,26 @@ export async function saveCredentials(input: {
         updatedAt: new Date(),
       },
     });
+  if (!input.authorization) {
+    await write(db);
+    return;
+  }
+  const identity = input.authorization;
+  await db.transaction(async (tx) => {
+    await tx.insert(schema.metaAuthorizationSubject).values({ appId: identity.appId, userId: identity.userId })
+      .onConflictDoNothing();
+    const [subject] = await tx.select().from(schema.metaAuthorizationSubject)
+      .where(and(eq(schema.metaAuthorizationSubject.appId, identity.appId), eq(schema.metaAuthorizationSubject.userId, identity.userId)))
+      .for("update");
+    if (!subject || identity.issuedAt <= subject.revokedIssuedAt) {
+      throw new AuthorizationRevokedError();
+    }
+    await write(tx);
+  });
+}
+
+export class AuthorizationRevokedError extends Error {
+  constructor() { super("La autorización fue retirada. Vuelve a autorizar en Meta."); }
 }
 
 /** Marca la conexión como vencida (token inválido detectado en runtime). */

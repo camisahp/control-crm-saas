@@ -500,6 +500,10 @@ export const metaCredentials = pgTable(
     phoneNumberId: text("phone_number_id").notNull(),
     displayPhoneNumber: text("display_phone_number"),
     verifiedName: text("verified_name"),
+    /** Identidad Meta verificada; null en conexiones manuales anteriores. */
+    authorizationAppId: text("authorization_app_id"),
+    authorizationUserId: text("authorization_user_id"),
+    authorizationIssuedAt: integer("authorization_issued_at"),
     tokenCipher: text("token_cipher").notNull(),
     tokenIv: text("token_iv").notNull(),
     tokenTag: text("token_tag").notNull(),
@@ -515,6 +519,14 @@ export const metaCredentials = pgTable(
     uniqueIndex("meta_credentials_phone_uq").on(t.phoneNumberId),
   ]
 );
+
+/** Registro de identidad/autenticación global, NO datos de un negocio.
+ * Conserva sólo el límite de revocación para callbacks previos al alta. */
+export const metaAuthorizationSubject = pgTable("meta_authorization_subject", {
+  appId: text("app_id").notNull(),
+  userId: text("user_id").notNull(),
+  revokedIssuedAt: integer("revoked_issued_at").notNull().default(0),
+}, (t) => [primaryKey({ columns: [t.appId, t.userId] })]);
 
 /**
  * 014 - Credenciales del canal de Instagram. Tabla explicita (no un jsonb

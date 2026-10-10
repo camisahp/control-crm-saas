@@ -17,6 +17,7 @@ export function EmbeddedSignup() {
   const [message, setMessage] = useState<string | null>(null);
   const selectionRef = useRef<{ wabaId: string; phoneNumberId: string } | null>(null);
   const pendingCodeRef = useRef<string | null>(null);
+  const signedRequestRef = useRef<string | undefined>(undefined);
   const [connecting, setConnecting] = useState(false);
   const [reviewConnecting, setReviewConnecting] = useState(false);
 
@@ -64,7 +65,7 @@ export function EmbeddedSignup() {
     const response = await fetch("/api/settings/whatsapp/embedded", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ code, ...picked }),
+      body: JSON.stringify({ code, ...picked, signedRequest: signedRequestRef.current }),
     }).catch(() => null);
     setConnecting(false);
     if (!response?.ok) {
@@ -82,14 +83,17 @@ export function EmbeddedSignup() {
     if (!window.FB || !config?.configId) return;
     selectionRef.current = null;
     pendingCodeRef.current = null;
+    signedRequestRef.current = undefined;
     setMessage(null);
     window.FB.login((response: unknown) => {
-      const code = (response as { authResponse?: { code?: string } })?.authResponse?.code;
+      const authResponse = (response as { authResponse?: { code?: string; signedRequest?: string } })?.authResponse;
+      const code = authResponse?.code;
       if (!code) {
         setMessage("El popup se cerró o Meta no autorizó el intento.");
         return;
       }
       pendingCodeRef.current = code;
+      signedRequestRef.current = authResponse?.signedRequest;
       const picked = selectionRef.current;
       if (!picked) {
         setMessage("Meta autorizó. Esperando que Meta devuelva la cuenta y el número seleccionado…");

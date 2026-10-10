@@ -1,6 +1,7 @@
 import { getEnv } from "@/lib/env";
 import { graphRequest, MetaApiError } from "@/lib/meta/client";
-import { saveCredentials } from "@/server/whatsapp/credentials";
+import { AuthorizationRevokedError, saveCredentials } from "@/server/whatsapp/credentials";
+import { resolveMetaAuthorizer, type VerifiedAuthorizer } from "@/server/whatsapp/authorizer";
 import { subscribeAppToWaba, testConnection } from "@/server/whatsapp/connect";
 
 export class EmbeddedSignupError extends Error {
@@ -89,6 +90,7 @@ async function persistVerifiedConnection(input: {
   wabaId: string;
   phoneNumberId: string;
   token: string;
+  authorization?: VerifiedAuthorizer;
 }): Promise<{ displayPhoneNumber: string; subscribed: string }> {
   await assertPhoneBelongsToWaba(input);
   const check = await testConnection(input.phoneNumberId, input.token);
@@ -98,14 +100,20 @@ async function persistVerifiedConnection(input: {
       check.message
     );
   }
-  await saveCredentials({
+  try { await saveCredentials({
     organizationId: input.organizationId,
     wabaId: input.wabaId,
     phoneNumberId: input.phoneNumberId,
     token: input.token,
     displayPhoneNumber: check.displayPhoneNumber,
     verifiedName: check.verifiedName,
-  });
+    authorization: input.authorization,
+  }); } catch (error) {
+    if (error instanceof AuthorizationRevokedError) {
+      throw new EmbeddedSignupError("invalid_connection", error.message);
+    }
+    throw error;
+  }
   const subscribed = await subscribeAppToWaba(input.wabaId, input.token);
   return { displayPhoneNumber: check.displayPhoneNumber, subscribed };
 }
@@ -116,9 +124,12 @@ export async function completeEmbeddedSignup(input: {
   wabaId: string;
   phoneNumberId: string;
   code: string;
+  signedRequest?: string;
 }): Promise<{ displayPhoneNumber: string; subscribed: string }> {
   const token = await exchangeCodeForToken(input.code);
-  return persistVerifiedConnection({ ...input, token });
+  const authorization = await resolveMetaAuthorizer(token, input.signedRequest);
+  if (!authorization) throw new EmbeddedSignupError("invalid_connection", "Meta no devolvió una identidad de autorización verificable. Vuelve a conectar; no se guardó la conexión.");
+  return persistVerifiedConnection({ ...input, token, authorization });
 }
 
 /** Conecta exclusivamente el WABA de revisión, sin revelar su token a la UI. */
